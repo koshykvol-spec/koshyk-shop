@@ -70,10 +70,13 @@ function renderPage(categories, brands) {
   <div class="pagination" id="pagination"></div>
 </div>
 
-<!-- Модалка редагування -->
+<!-- Модалка редагування (на весь екран) -->
 <div class="modal-overlay" id="editOverlay" hidden>
   <div class="modal">
-    <h2>Редагувати товар</h2>
+    <div class="modal-header">
+      <h2>Редагувати товар</h2>
+      <button type="button" id="closeEditX" class="modal-close-x" aria-label="Закрити">✕</button>
+    </div>
     <input type="hidden" id="editId">
     <div class="form-row"><label>Назва</label><input type="text" id="editName"></div>
     <div class="form-row"><label>Ціна, ₴</label><input type="number" step="0.01" id="editPrice"></div>
@@ -232,7 +235,13 @@ function clientJs() {
     document.getElementById("photoInput").value = "";
     document.getElementById("uploadStatus").textContent = "";
     overlay.hidden = false;
+    document.body.style.overflow = "hidden";
     loadGallery(p.id);
+  }
+
+  function closeEdit() {
+    overlay.hidden = true;
+    document.body.style.overflow = "";
   }
 
   function loadGallery(productId) {
@@ -349,8 +358,10 @@ function clientJs() {
     uploadNext();
   });
 
-  document.getElementById("cancelEdit").addEventListener("click", function () { overlay.hidden = true; });
-  overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.hidden = true; });
+  document.getElementById("cancelEdit").addEventListener("click", closeEdit);
+  document.getElementById("closeEditX").addEventListener("click", closeEdit);
+  // Модалка на весь екран — клікнути "поза нею" фізично неможливо,
+  // закриття лише через кнопки "Скасувати" / "✕".
 
   document.getElementById("saveEdit").addEventListener("click", function () {
     var statusEl = document.getElementById("modalStatus");
@@ -373,7 +384,7 @@ function clientJs() {
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.ok) {
-          overlay.hidden = true;
+          closeEdit();
           fetchData();
         } else {
           statusEl.textContent = data.error || "Помилка збереження";
@@ -441,16 +452,20 @@ function css() {
   .page-btn { padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--ink-soft); }
   .page-btn.active { background: var(--ink); color: var(--card); border-color: var(--ink); }
 
-  .modal-overlay { position: fixed; inset: 0; background: rgba(35,39,31,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  /* Модалка редагування — на весь екран, без бекдропу (нема куди клікнути "поза нею") */
+  .modal-overlay { position: fixed; inset: 0; background: var(--card); z-index: 100; }
   .modal-overlay[hidden] { display: none; }
-  .modal { background: var(--card); border-radius: 16px; padding: 28px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
-  .modal h2 { font-family: 'Fraunces', serif; font-size: 1.2rem; margin-bottom: 18px; }
+  .modal { background: var(--card); padding: 24px 28px 28px; max-width: 720px; width: 100%; height: 100vh; margin: 0 auto; overflow-y: auto; box-sizing: border-box; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; position: sticky; top: -24px; background: var(--card); padding-top: 24px; margin-top: -24px; z-index: 1; }
+  .modal-header h2 { font-family: 'Fraunces', serif; font-size: 1.3rem; }
+  .modal-close-x { background: var(--paper); border: 1.5px solid var(--line); width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; color: var(--ink-soft); flex-shrink: 0; }
+  .modal-close-x:hover { color: var(--ink); border-color: var(--ink); }
   .form-row { margin-bottom: 14px; }
   .form-row label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
   .form-row input[type="text"], .form-row input[type="number"], .form-row textarea { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); font-family: 'Manrope', sans-serif; font-size: 0.88rem; }
   .form-row textarea { min-height: 70px; resize: vertical; }
   .modal-footer { position: sticky; bottom: -28px; margin: 18px -28px -28px; padding: 14px 28px 28px; background: var(--card); border-top: 1.5px solid var(--line); }
-  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions { display: flex; gap: 10px; max-width: 420px; margin: 0 auto; }
   .modal-actions button { flex: 1; padding: 11px; border-radius: 100px; border: none; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
   #cancelEdit { background: var(--paper); color: var(--ink); border: 1.5px solid var(--line); }
   #saveEdit { background: var(--green); color: var(--card); }
