@@ -1,0 +1,6 @@
+.wrangler/
+node_modules/
+*.log
+.env
+.cf-secrets
+products_dump.json

@@ -1,0 +1,12 @@
+name = "koshyk-shop"
+compatibility_date = "2026-08-16"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "koshyk_db"
+database_name = "koshyk-db"
+database_id = "f1be63da-2b94-4c9c-ad0b-7fa5836de39a"
+
+[[r2_buckets]]
+bucket_name = "koshyk-img"
+binding = "koshyk_img"

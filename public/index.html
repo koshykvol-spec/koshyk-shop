@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ощадний Кошик — все для дому за копійки</title>
+<meta name="description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14151F;
+    --card: #1E202E;
+    --ink: #F5F6FA;
+    --ink-soft: #9A9DB0;
+    --line: rgba(245, 246, 250, 0.12);
+    --coral: #FF3D71;
+    --coral-deep: #FF6B93;
+    --teal: #00E5C7;
+    --teal-deep: #4DFFEA;
+    --yellow: #FFE600;
+    --blue: #2ED1FF;
+    --pink: #FF3D9A;
+    --purple: #B94FFF;
+    --green: #39FF6A;
+    --radius: 20px;
+    --radius-lg: 28px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Nunito', system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3, .heading-font { font-family: 'Baloo 2', sans-serif; }
+
+  /* ---------- HEADER ---------- */
+  header { padding: 18px 0; background: var(--card); border-bottom: 2px solid var(--teal); box-shadow: 0 0 20px -4px var(--teal); position: sticky; top: 0; z-index: 20; }
+  .header-row { display: flex; align-items: center; gap: 18px; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .logo { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .logo-mark {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--coral), var(--purple));
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; font-weight: 800; transform: rotate(-6deg);
+    box-shadow: 0 0 16px -2px var(--coral);
+  }
+  .header-search { flex: 1; max-width: 440px; display: flex; }
+  .header-search input {
+    flex: 1; padding: 11px 16px; border: 2px solid var(--teal); border-right: none;
+    border-radius: 100px 0 0 100px; font-family: 'Nunito', sans-serif; font-size: 0.94rem;
+    background: var(--bg); color: var(--ink);
+  }
+  .header-search input::placeholder { color: var(--ink-soft); }
+  .header-search input:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,229,199,0.25); }
+  .header-search button {
+    padding: 0 18px; border: 2px solid var(--teal); background: var(--yellow); color: #14151F;
+    border-radius: 0 100px 100px 0; font-size: 1rem; cursor: pointer; font-weight: 800;
+    box-shadow: 0 0 14px -2px var(--yellow);
+  }
+  .header-search button:hover { background: var(--coral); color: #fff; }
+  nav { display: flex; align-items: center; gap: 18px; font-weight: 700; font-size: 0.92rem; flex-shrink: 0; }
+  nav a { color: var(--ink-soft); }
+  nav a:hover { color: var(--ink); }
+  .cart-link { position: relative; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff !important; padding: 9px 16px; border-radius: 100px; box-shadow: 0 0 16px -3px var(--purple); }
+  .cart-link:hover { box-shadow: 0 0 22px -2px var(--coral); }
+  .cart-badge {
+    display: none; align-items: center; justify-content: center;
+    background: var(--yellow); color: var(--ink); font-size: 0.72rem; font-weight: 800;
+    min-width: 19px; height: 19px; border-radius: 100px; padding: 0 4px;
+  }
+
+  /* ---------- INTRO ---------- */
+  .intro { padding: 26px 0 10px; }
+  .intro h1 { font-size: clamp(1.4rem, 2.6vw, 1.9rem); font-weight: 700; margin-bottom: 6px; }
+  .intro p { color: var(--ink-soft); font-size: 0.94rem; font-weight: 600; }
+  .intro p b { color: var(--coral-deep); }
+
+  /* ---------- CATEGORY GRID ---------- */
+  .categories { padding: 20px 0 50px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .cat-card {
+    background: var(--card); border: 2px solid var(--line); border-radius: var(--radius);
+    padding: 20px; display: flex; flex-direction: column; gap: 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .cat-card:hover { transform: translateY(-4px); }
+  .cat-card:active { transform: translateY(-1px); }
+  .cat-top { display: flex; align-items: center; justify-content: space-between; }
+  .cat-icon {
+    width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.7rem; flex-shrink: 0;
+  }
+  .cat-count {
+    font-family: 'Baloo 2', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--ink);
+    background: var(--bg); border: 1.5px solid var(--line); padding: 3px 10px; border-radius: 100px;
+  }
+  .cat-name { font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--ink); }
+  .cat-desc { font-size: 0.84rem; color: var(--ink-soft); font-weight: 600; }
+
+  .cat-card[data-slug="kanctovary"] .cat-icon { background: rgba(0,229,199,0.16); }
+  .cat-card[data-slug="kanctovary"]:hover { border-color: var(--teal); box-shadow: 0 0 24px -4px var(--teal); }
+  .cat-card[data-slug="gospodarchi"] .cat-icon { background: rgba(255,230,0,0.16); }
+  .cat-card[data-slug="gospodarchi"]:hover { border-color: var(--yellow); box-shadow: 0 0 24px -4px var(--yellow); }
+  .cat-card[data-slug="igrashky"] .cat-icon { background: rgba(255,61,113,0.16); }
+  .cat-card[data-slug="igrashky"]:hover { border-color: var(--coral); box-shadow: 0 0 24px -4px var(--coral); }
+  .cat-card[data-slug="odyah"] .cat-icon { background: rgba(46,209,255,0.16); }
+  .cat-card[data-slug="odyah"]:hover { border-color: var(--blue); box-shadow: 0 0 24px -4px var(--blue); }
+  .cat-card[data-slug="himiya"] .cat-icon { background: rgba(57,255,106,0.16); }
+  .cat-card[data-slug="himiya"]:hover { border-color: var(--green); box-shadow: 0 0 24px -4px var(--green); }
+  .cat-card[data-slug="bizhuteriya"] .cat-icon { background: rgba(185,79,255,0.18); }
+  .cat-card[data-slug="bizhuteriya"]:hover { border-color: var(--purple); box-shadow: 0 0 24px -4px var(--purple); }
+  .cat-card[data-slug="vzuttya"] .cat-icon { background: rgba(255,61,154,0.16); }
+  .cat-card[data-slug="vzuttya"]:hover { border-color: var(--pink); box-shadow: 0 0 24px -4px var(--pink); }
+  .cat-card[data-slug="vzuttya"] { grid-column: span 1; }
+
+  /* ---------- STRIP ---------- */
+  .strip { background: linear-gradient(90deg, #1a0b2e, #2e0b3a); border-top: 1px solid var(--purple); border-bottom: 1px solid var(--purple); padding: 14px 0; font-size: 0.86rem; font-weight: 700; color: #fff; }
+  .strip .wrap { display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; }
+  .strip b { color: var(--yellow); text-shadow: 0 0 10px rgba(255,230,0,0.5); }
+
+  /* ---------- FOOTER ---------- */
+  footer { padding: 40px 0 30px; background: var(--card); }
+  .footer-content { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding-bottom: 26px; margin-bottom: 20px; border-bottom: 2px solid var(--line); }
+  .footer-col h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; color: var(--teal); }
+  .footer-col p { font-size: 0.88rem; color: var(--ink-soft); white-space: pre-line; line-height: 1.6; font-weight: 600; }
+  .footer-col .contact-line { margin-bottom: 4px; display: block; }
+  .footer-col .contact-line b { color: var(--ink); }
+  .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.84rem; color: var(--ink-soft); font-weight: 600; }
+
+  @media (max-width: 880px) {
+    .header-row { flex-wrap: nowrap; }
+    nav a:not(.cart-link) { display: none; }
+    .header-search { margin: 0 8px; }
+    .cat-grid { grid-template-columns: repeat(2, 1fr); }
+    .footer-content { grid-template-columns: 1fr; }
+    .strip .wrap { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <a class="logo" href="/">
+      <span class="logo-mark">К</span>
+      Ощадний Кошик
+    </a>
+    <form class="header-search" action="/search" method="get">
+      <input type="text" name="q" placeholder="Пошук товарів…">
+      <button type="submit">🔍</button>
+    </form>
+    <nav>
+      <a href="/#categories">Категорії</a>
+      <a href="/#about">Про нас</a>
+      <a href="/#contacts">Контакти</a>
+      <a class="cart-link" href="/cart.html">🛒 Кошик <span id="cartBadge" class="cart-badge"></span></a>
+    </nav>
+  </div>
+</header>
+
+<section class="intro">
+  <div class="wrap">
+    <h1>Все для дому, дітей і побуту — в одному кошику</h1>
+    <p><b id="heroCount">2 030 товарів</b> в наявності просто зараз · 7 категорій · без прихованих націнок</p>
+  </div>
+</section>
+
+<section class="categories" id="categories">
+  <div class="wrap">
+    <div class="cat-grid">
+
+      <a class="cat-card" href="/catalog/kanctovary" data-slug="kanctovary">
+        <div class="cat-top">
+          <div class="cat-icon">✏️</div>
+          <div class="cat-count" data-slug="kanctovary">642</div>
+        </div>
+        <div class="cat-name">Канцтовари</div>
+        <div class="cat-desc">Зошити, ручки, папір, шкільне приладдя</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/gospodarchi" data-slug="gospodarchi">
+        <div class="cat-top">
+          <div class="cat-icon">🧺</div>
+          <div class="cat-count" data-slug="gospodarchi">555</div>
+        </div>
+        <div class="cat-name">Господарчі товари</div>
+        <div class="cat-desc">Все для дому, побуту та порядку</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/igrashky" data-slug="igrashky">
+        <div class="cat-top">
+          <div class="cat-icon">🧸</div>
+          <div class="cat-count" data-slug="igrashky">477</div>
+        </div>
+        <div class="cat-name">Іграшки</div>
+        <div class="cat-desc">Для дітей будь-якого віку</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/odyah" data-slug="odyah">
+        <div class="cat-top">
+          <div class="cat-icon">👕</div>
+          <div class="cat-count" data-slug="odyah">150</div>
+        </div>
+        <div class="cat-name">Одяг</div>
+        <div class="cat-desc">Дитячий одяг за розміром і статтю</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/himiya" data-slug="himiya">
+        <div class="cat-top">
+          <div class="cat-icon">🧴</div>
+          <div class="cat-count" data-slug="himiya">106</div>
+        </div>
+        <div class="cat-name">Хімія</div>
+        <div class="cat-desc">Побутова хімія та засоби для чистоти</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/bizhuteriya" data-slug="bizhuteriya">
+        <div class="cat-top">
+          <div class="cat-icon">💍</div>
+          <div class="cat-count" data-slug="bizhuteriya">95</div>
+        </div>
+        <div class="cat-name">Біжутерія</div>
+        <div class="cat-desc">Прикраси, аксесуари, дрібнички</div>
+      </a>
+
+      <a class="cat-card" href="/catalog/vzuttya" data-slug="vzuttya">
+        <div class="cat-top">
+          <div class="cat-icon">👟</div>
+          <div class="cat-count" data-slug="vzuttya">5</div>
+        </div>
+        <div class="cat-name">Взуття</div>
+        <div class="cat-desc">Дитяче взуття — галоші та шльопанці</div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<div class="strip">
+  <div class="wrap">
+    <span>📦 <b id="stripTotal">2 030</b> товарних позицій у каталозі</span>
+    <span>🏷️ Ціни від <b id="stripMinPrice">0.15 ₴</b> до <b id="stripMaxPrice">785 ₴</b></span>
+    <span>🇺🇦 Працюємо для покупців по всій Україні</span>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-content">
+      <div class="footer-col" id="about">
+        <h3>Про нас</h3>
+        <p id="aboutText">Ощадний Кошик — інтернет-магазин канцтоварів, господарчих товарів, іграшок, одягу, хімії, біжутерії та взуття. Частина мережі магазинів, до якої входить також Агроном.</p>
+      </div>
+      <div class="footer-col" id="contacts">
+        <h3>Контакти</h3>
+        <p id="contactsLines"></p>
+        <p id="contactsText"></p>
+      </div>
+    </div>
+    <div class="foot-row">
+      <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
+      <span>Частина мережі магазинів, до якої входить також Агроном</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/cart.js"></script>
+<script>
+(function () {
+  fetch("/api/categories")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+      var fmt = function (n) { return n.toLocaleString("uk-UA"); };
+
+      var heroCount = document.getElementById("heroCount");
+      if (heroCount) heroCount.textContent = fmt(data.totalInStock) + " товарів";
+
+      var stripTotal = document.getElementById("stripTotal");
+      if (stripTotal) stripTotal.textContent = fmt(data.totalInStock);
+
+      if (data.minPrice != null) {
+        var stripMin = document.getElementById("stripMinPrice");
+        if (stripMin) stripMin.textContent = Number(data.minPrice).toFixed(2) + " ₴";
+      }
+      if (data.maxPrice != null) {
+        var stripMax = document.getElementById("stripMaxPrice");
+        if (stripMax) stripMax.textContent = Number(data.maxPrice).toFixed(2) + " ₴";
+      }
+
+      data.categories.forEach(function (cat) {
+        var countEl = document.querySelector('.cat-count[data-slug="' + cat.slug + '"]');
+        if (countEl) countEl.textContent = fmt(cat.count);
+      });
+    })
+    .catch(function () {});
+
+  fetch("/api/site-info")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) return;
+
+      if (data.aboutText) {
+        var aboutEl = document.getElementById("aboutText");
+        if (aboutEl) aboutEl.textContent = data.aboutText;
+      }
+
+      var linesEl = document.getElementById("contactsLines");
+      if (linesEl) {
+        var lines = [];
+        if (data.storePhone) lines.push('<span class="contact-line"><b>Телефон:</b> ' + escapeHtml(data.storePhone) + "</span>");
+        if (data.storeAddress) lines.push('<span class="contact-line"><b>Адреса самовивозу:</b> ' + escapeHtml(data.storeAddress) + "</span>");
+        linesEl.innerHTML = lines.join("");
+      }
+
+      var contactsTextEl = document.getElementById("contactsText");
+      if (contactsTextEl && data.contactsText) contactsTextEl.textContent = data.contactsText;
+    })
+    .catch(function () {});
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+})();
+</script>
+
+</body>
+</html>
