@@ -81,6 +81,12 @@ function renderPage(categories, brands) {
     <div class="form-row"><label>Назва</label><input type="text" id="editName"></div>
     <div class="form-row"><label>Ціна, ₴</label><input type="number" step="0.01" id="editPrice"></div>
     <div class="form-row"><label>Бренд</label><input type="text" id="editBrand"></div>
+    <div class="form-row form-row-checkbox">
+      <label class="checkbox-label">
+        <input type="checkbox" id="editInStock">
+        <span>В наявності</span>
+      </label>
+    </div>
     <div class="form-row">
       <label>Фото товару</label>
       <div class="photo-gallery" id="photoGallery"></div>
@@ -188,11 +194,12 @@ function clientJs() {
           '<td>' + escapeHtml(p.categoryName) + '</td>' +
           '<td class="mono">' + p.price.toFixed(2) + ' ₴</td>' +
           '<td>' + (p.hasRealPhoto ? '✅' : '—') + '</td>' +
+          '<td>' + (p.inStock ? '<span class="stock-badge stock-yes">в наявності</span>' : '<span class="stock-badge stock-no">немає</span>') + '</td>' +
           '<td><button type="button" class="edit-btn" data-id="' + p.id + '">Редагувати</button></td>' +
         '</tr>';
     }).join("");
 
-    table.innerHTML = '<table><thead><tr><th>SKU</th><th>Назва</th><th>Категорія</th><th>Ціна</th><th>Фото</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+    table.innerHTML = '<table><thead><tr><th>SKU</th><th>Назва</th><th>Категорія</th><th>Ціна</th><th>Фото</th><th>Наявність</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
 
     table.querySelectorAll(".edit-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { openEdit(btn.dataset.id, products); });
@@ -227,6 +234,7 @@ function clientJs() {
     document.getElementById("editName").value = p.name;
     document.getElementById("editPrice").value = p.price;
     document.getElementById("editBrand").value = p.brand || "";
+    document.getElementById("editInStock").checked = !!p.inStock;
     document.getElementById("editDescription").value = p.description || "";
     document.getElementById("editMetaTitle").value = p.metaTitle || "";
     document.getElementById("editMetaDescription").value = p.metaDescription || "";
@@ -370,6 +378,7 @@ function clientJs() {
       name: document.getElementById("editName").value,
       price: parseFloat(document.getElementById("editPrice").value),
       brand: document.getElementById("editBrand").value,
+      inStock: document.getElementById("editInStock").checked,
       description: document.getElementById("editDescription").value,
       metaTitle: document.getElementById("editMetaTitle").value,
       metaDescription: document.getElementById("editMetaDescription").value,
@@ -448,6 +457,9 @@ function css() {
   .loading { color: var(--ink-soft); padding: 30px 0; }
   .edit-btn { background: var(--ink); color: var(--card); border: none; padding: 6px 14px; border-radius: 100px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
   .edit-btn:hover { background: var(--green-deep); }
+  .stock-badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 0.74rem; font-weight: 700; }
+  .stock-yes { background: rgba(51,96,74,0.12); color: var(--green-deep); }
+  .stock-no { background: rgba(200,70,46,0.12); color: var(--red-deep); }
   .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
   .page-btn { padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--ink-soft); }
   .page-btn.active { background: var(--ink); color: var(--card); border-color: var(--ink); }
@@ -464,6 +476,9 @@ function css() {
   .form-row label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
   .form-row input[type="text"], .form-row input[type="number"], .form-row textarea { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); font-family: 'Manrope', sans-serif; font-size: 0.88rem; }
   .form-row textarea { min-height: 70px; resize: vertical; }
+  .form-row-checkbox { padding: 4px 0; }
+  .checkbox-label { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+  .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--green); cursor: pointer; }
   .modal-footer { position: sticky; bottom: -28px; margin: 18px -28px -28px; padding: 14px 28px 28px; background: var(--card); border-top: 1.5px solid var(--line); }
   .modal-actions { display: flex; gap: 10px; max-width: 420px; margin: 0 auto; }
   .modal-actions button { flex: 1; padding: 11px; border-radius: 100px; border: none; font-weight: 700; cursor: pointer; font-size: 0.9rem; }

@@ -48,7 +48,7 @@ export async function onRequestGet(context) {
   const offset = (page - 1) * PER_PAGE;
 
   const productsSql = `
-    SELECT p.id, p.sku, p.name, p.price, p.brand, p.image_url, p.has_real_photo,
+    SELECT p.id, p.sku, p.name, p.price, p.brand, p.image_url, p.has_real_photo, p.in_stock,
            c.name_uk as category_name, pc.description, pc.meta_title, pc.meta_description, pc.keywords
     FROM products p
     JOIN categories c ON c.id = p.category_id
@@ -84,6 +84,7 @@ export async function onRequestGet(context) {
         brand: p.brand,
         imageUrl: p.image_url,
         hasRealPhoto: !!p.has_real_photo,
+        inStock: !!p.in_stock,
         categoryName: p.category_name,
         description: p.description,
         metaTitle: p.meta_title,

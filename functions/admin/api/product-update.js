@@ -1,9 +1,10 @@
 // POST /admin/api/product-update
-// { id, name, price, brand, imageUrl, hasRealPhoto, description }
+// { id, name, price, brand, description, metaTitle, metaDescription, keywords, inStock }
 //
 // name_lower оновлюється разом з name для регістронезалежного пошуку
 // (кирилиця не приводиться до нижнього регістру через SQL LOWER()).
 // sku тут не редагується, тому sku_lower не чіпаємо.
+// inStock — ручний перемикач наявності (окремо від автоматичного оновлення з 1С-імпорту).
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -15,16 +16,16 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: "Некоректний запит" }, 400);
   }
 
-  const { id, name, price, brand, description, metaTitle, metaDescription, keywords } = body;
+  const { id, name, price, brand, description, metaTitle, metaDescription, keywords, inStock } = body;
   if (!id || !name || isNaN(price)) {
     return json({ ok: false, error: "Заповніть назву і коректну ціну" }, 400);
   }
 
   await env.koshyk_db
     .prepare(
-      `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, in_stock = ?, updated_at = datetime('now') WHERE id = ?`
     )
-    .bind(name, name.toLowerCase(), price, brand || null, id)
+    .bind(name, name.toLowerCase(), price, brand || null, inStock ? 1 : 0, id)
     .run();
 
   // product_content могло не існувати (створювалось тільки для одягу/взуття
