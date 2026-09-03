@@ -15,7 +15,7 @@ const CATEGORY_ICONS = {
 
 // TODO: замінити на реальний юзернейм Telegram-бота/каналу магазину,
 // коли він буде створений (за аналогією з AGRO3 client-side ordering).
-const STORE_TELEGRAM_USERNAME = "koshyk_shop_bot";
+const STORE_TELEGRAM_USERNAME = "ahronon_order_bot";
 
 export async function onRequestGet(context) {
   const { env, params } = context;
