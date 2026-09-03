@@ -65,6 +65,7 @@ function renderPage(categories, brands) {
     </select>
   </div>
   <div id="missingIndicator"></div>
+  <div id="bulkBar" class="bulk-bar" hidden></div>
 
   <div id="productTable"></div>
   <div class="pagination" id="pagination"></div>
@@ -141,6 +142,7 @@ function clientJs() {
   var searchInput = document.getElementById("searchInput");
   var categorySelect = document.getElementById("categorySelect");
   var brandSelect = document.getElementById("brandSelect");
+  var bulkBar = document.getElementById("bulkBar");
   var debounceTimer;
 
   function escapeHtml(str) {
@@ -158,6 +160,7 @@ function clientJs() {
     params.set("page", state.page);
 
     table.innerHTML = '<p class="loading">Завантаження…</p>';
+    bulkBar.hidden = true;
 
     fetch("/admin/api/products?" + params.toString())
       .then(function (r) { return r.json(); })
@@ -181,6 +184,36 @@ function clientJs() {
     });
   }
 
+  // ── Масові дії (чекбокси в таблиці) ──────────────────────────────
+  function selectedIds() {
+    return Array.prototype.slice.call(table.querySelectorAll(".row-select:checked")).map(function (cb) { return cb.dataset.id; });
+  }
+
+  function updateBulkBar() {
+    var ids = selectedIds();
+    if (!ids.length) { bulkBar.hidden = true; bulkBar.innerHTML = ""; return; }
+    bulkBar.hidden = false;
+    bulkBar.innerHTML =
+      '<span class="bulk-count">' + ids.length + ' обрано</span>' +
+      '<button type="button" id="bulkMarkOut" class="bulk-btn bulk-btn-out">Позначити як недоступні</button>' +
+      '<button type="button" id="bulkMarkIn" class="bulk-btn bulk-btn-in">Позначити як в наявності</button>';
+    document.getElementById("bulkMarkOut").addEventListener("click", function () { applyBulkStock(false); });
+    document.getElementById("bulkMarkIn").addEventListener("click", function () { applyBulkStock(true); });
+  }
+
+  function applyBulkStock(inStock) {
+    var ids = selectedIds();
+    if (!ids.length) return;
+    bulkBar.innerHTML = '<span class="bulk-count">Оновлення…</span>';
+    fetch("/admin/api/bulk-stock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ids, inStock: inStock }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function () { fetchData(); });
+  }
+
   function renderTable(products) {
     if (!products.length) {
       table.innerHTML = '<p class="loading">Нічого не знайдено.</p>';
@@ -189,6 +222,7 @@ function clientJs() {
     var rows = products.map(function (p) {
       return '' +
         '<tr data-id="' + p.id + '">' +
+          '<td style="width:24px;text-align:center"><input type="checkbox" class="row-select" data-id="' + p.id + '"></td>' +
           '<td class="mono">' + escapeHtml(p.sku) + '</td>' +
           '<td>' + escapeHtml(p.name) + '</td>' +
           '<td>' + escapeHtml(p.categoryName) + '</td>' +
@@ -199,11 +233,26 @@ function clientJs() {
         '</tr>';
     }).join("");
 
-    table.innerHTML = '<table><thead><tr><th>SKU</th><th>Назва</th><th>Категорія</th><th>Ціна</th><th>Фото</th><th>Наявність</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+    table.innerHTML = '<table><thead><tr>' +
+      '<th style="width:24px"><input type="checkbox" id="selectAllCheckbox"></th>' +
+      '<th>SKU</th><th>Назва</th><th>Категорія</th><th>Ціна</th><th>Фото</th><th>Наявність</th><th></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
 
     table.querySelectorAll(".edit-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { openEdit(btn.dataset.id, products); });
     });
+
+    table.querySelectorAll(".row-select").forEach(function (cb) {
+      cb.addEventListener("change", updateBulkBar);
+    });
+
+    var selectAll = document.getElementById("selectAllCheckbox");
+    selectAll.addEventListener("change", function () {
+      table.querySelectorAll(".row-select").forEach(function (cb) { cb.checked = selectAll.checked; });
+      updateBulkBar();
+    });
+
+    updateBulkBar();
   }
 
   function renderPagination(page, totalPages) {
@@ -260,15 +309,49 @@ function clientJs() {
       .then(function (data) { renderGallery(data.images || []); });
   }
 
+  // ── Drag&drop сортування галереї ─────────────────────────────────
+  function attachDragReorder(gallery) {
+    var dragEl = null;
+    function thumbs() { return Array.prototype.slice.call(gallery.querySelectorAll(".photo-thumb")); }
+    function saveOrder() {
+      var ids = thumbs().map(function (t) { return t.dataset.imageId; });
+      fetch("/admin/api/reorder-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: currentProductId, order: ids }),
+      });
+    }
+    thumbs().forEach(function (t) {
+      t.addEventListener("dragstart", function (e) {
+        dragEl = t;
+        t.style.opacity = "0.4";
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", "x"); } catch (_) {}
+      });
+      t.addEventListener("dragend", function () {
+        t.style.opacity = "";
+        saveOrder();
+      });
+      t.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        if (!dragEl || dragEl === t) return;
+        var r = t.getBoundingClientRect();
+        var before = (e.clientX - r.left) < r.width / 2;
+        gallery.insertBefore(dragEl, before ? t : t.nextSibling);
+      });
+    });
+  }
+
   function renderGallery(images) {
     var gallery = document.getElementById("photoGallery");
     if (!images.length) {
       gallery.innerHTML = '<p class="gallery-empty">Фото ще немає — додайте нижче.</p>';
       return;
     }
-    gallery.innerHTML = images.map(function (img) {
+    var hint = images.length > 1 ? '<p class="gallery-hint">🖐 перетягуйте фото для зміни порядку</p>' : '';
+    gallery.innerHTML = hint + images.map(function (img) {
       return '' +
-        '<div class="photo-thumb' + (img.isPrimary ? ' primary' : '') + '" data-image-id="' + img.id + '">' +
+        '<div class="photo-thumb' + (img.isPrimary ? ' primary' : '') + '" draggable="true" data-image-id="' + img.id + '">' +
           '<img src="' + img.url + '" alt="">' +
           (img.isPrimary ? '<span class="primary-badge">Головне</span>' : '<button type="button" class="make-primary-btn">Зробити головним</button>') +
           '<button type="button" class="delete-photo-btn">✕</button>' +
@@ -301,6 +384,26 @@ function clientJs() {
           .then(function () { loadGallery(currentProductId); });
       });
     });
+
+    attachDragReorder(gallery);
+  }
+
+  // ── Прев'ю фото перед завантаженням ──────────────────────────────
+  function addPendingPreviews(files) {
+    var gallery = document.getElementById("photoGallery");
+    var emptyMsg = gallery.querySelector(".gallery-empty, .gallery-loading");
+    if (emptyMsg) gallery.innerHTML = "";
+    files.forEach(function (file) {
+      var url = URL.createObjectURL(file);
+      var div = document.createElement("div");
+      div.className = "photo-thumb photo-thumb-pending";
+      div.innerHTML = '<img src="' + url + '" alt=""><span class="pending-badge">⏳ завантаження…</span>';
+      gallery.appendChild(div);
+    });
+  }
+
+  function revokePendingPreviews() {
+    document.querySelectorAll(".photo-thumb-pending img").forEach(function (img) { URL.revokeObjectURL(img.src); });
   }
 
   // Стиснення зображення на клієнті перед відправкою: зменшуємо до
@@ -334,12 +437,14 @@ function clientJs() {
     var statusEl = document.getElementById("uploadStatus");
     var done = 0;
 
+    addPendingPreviews(files);
     statusEl.textContent = "Завантаження 0 з " + files.length + "…";
 
     var uploadNext = function () {
       if (done >= files.length) {
         statusEl.textContent = "Готово ✓";
         e.target.value = "";
+        revokePendingPreviews();
         loadGallery(currentProductId);
         return;
       }
@@ -463,6 +568,15 @@ function css() {
   .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
   .page-btn { padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--ink-soft); }
   .page-btn.active { background: var(--ink); color: var(--card); border-color: var(--ink); }
+  .row-select, #selectAllCheckbox { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+
+  .bulk-bar { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1.5px solid var(--line); padding: 10px 14px; border-radius: 100px; margin-bottom: 14px; flex-wrap: wrap; }
+  .bulk-count { font-size: 0.84rem; font-weight: 700; color: var(--ink); margin-right: 4px; }
+  .bulk-btn { padding: 7px 14px; border-radius: 100px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+  .bulk-btn-out { background: rgba(200,70,46,0.12); color: var(--red-deep); }
+  .bulk-btn-out:hover { background: var(--red); color: #fff; }
+  .bulk-btn-in { background: rgba(51,96,74,0.12); color: var(--green-deep); }
+  .bulk-btn-in:hover { background: var(--green); color: #fff; }
 
   /* Модалка редагування — на весь екран, без бекдропу (нема куди клікнути "поза нею") */
   .modal-overlay { position: fixed; inset: 0; background: var(--card); z-index: 100; }
@@ -492,10 +606,13 @@ function css() {
 
   .photo-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; }
   .gallery-empty, .gallery-loading { font-size: 0.82rem; color: var(--ink-soft); }
-  .photo-thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--line); background: var(--paper); }
+  .gallery-hint { width: 100%; font-size: 0.76rem; color: var(--ink-soft); margin-bottom: 2px; }
+  .photo-thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--line); background: var(--paper); cursor: grab; }
   .photo-thumb.primary { border-color: var(--green); border-width: 2px; }
-  .photo-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb.photo-thumb-pending { cursor: default; opacity: 0.65; }
+  .photo-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .primary-badge { position: absolute; bottom: 0; left: 0; right: 0; background: var(--green); color: #fff; font-size: 0.62rem; font-weight: 700; text-align: center; padding: 2px 0; }
+  .pending-badge { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(35,39,31,0.75); color: #fff; font-size: 0.6rem; font-weight: 700; text-align: center; padding: 3px 0; }
   .make-primary-btn { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(35,39,31,0.75); color: #fff; font-size: 0.6rem; font-weight: 700; border: none; padding: 3px 0; cursor: pointer; }
   .delete-photo-btn { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: none; background: var(--red); color: #fff; font-size: 0.68rem; cursor: pointer; line-height: 1; }
   #photoInput { font-size: 0.82rem; }
