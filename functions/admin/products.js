@@ -431,25 +431,17 @@ function clientJs() {
     });
   }
 
-  document.getElementById("photoInput").addEventListener("change", function (e) {
-    var files = Array.prototype.slice.call(e.target.files);
-    if (!files.length) return;
-    var statusEl = document.getElementById("uploadStatus");
-    var done = 0;
+  // Паралельне завантаження з обмеженням одночасних запитів (3) —
+  // швидше за послідовне по-одному, але не заливає Worker/D1 усіма
+  // файлами разом при масовому додаванні (10-20+ фото одночасно).
+  function uploadAllPhotos(files, statusEl) {
+    var UPLOAD_CONCURRENCY = 3;
+    var total = files.length;
+    var nextIndex = 0;
+    var doneCount = 0;
 
-    addPendingPreviews(files);
-    statusEl.textContent = "Завантаження 0 з " + files.length + "…";
-
-    var uploadNext = function () {
-      if (done >= files.length) {
-        statusEl.textContent = "Готово ✓";
-        e.target.value = "";
-        revokePendingPreviews();
-        loadGallery(currentProductId);
-        return;
-      }
-      var file = files[done];
-      compressImage(file)
+    function uploadOne(file) {
+      return compressImage(file)
         .then(function (blob) {
           return fetch(
             "/admin/api/upload-image?productId=" + currentProductId + "&filename=" + encodeURIComponent(file.name),
@@ -457,18 +449,41 @@ function clientJs() {
           );
         })
         .then(function (r) { return r.json(); })
-        .then(function () {
-          done++;
-          statusEl.textContent = "Завантаження " + done + " з " + files.length + "…";
-          uploadNext();
-        })
         .catch(function () {
-          done++;
           statusEl.textContent = "Помилка на файлі " + file.name + ", продовжуємо…";
-          uploadNext();
         });
-    };
-    uploadNext();
+    }
+
+    function worker() {
+      if (nextIndex >= total) return Promise.resolve();
+      var file = files[nextIndex++];
+      return uploadOne(file).then(function () {
+        doneCount++;
+        statusEl.textContent = "Завантаження " + doneCount + " з " + total + "…";
+        return worker();
+      });
+    }
+
+    var workers = [];
+    var poolSize = Math.min(UPLOAD_CONCURRENCY, total);
+    for (var i = 0; i < poolSize; i++) workers.push(worker());
+    return Promise.all(workers);
+  }
+
+  document.getElementById("photoInput").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    if (!files.length) return;
+    var statusEl = document.getElementById("uploadStatus");
+
+    addPendingPreviews(files);
+    statusEl.textContent = "Завантаження 0 з " + files.length + "…";
+
+    uploadAllPhotos(files, statusEl).then(function () {
+      statusEl.textContent = "Готово ✓";
+      e.target.value = "";
+      revokePendingPreviews();
+      loadGallery(currentProductId);
+    });
   });
 
   document.getElementById("cancelEdit").addEventListener("click", closeEdit);
