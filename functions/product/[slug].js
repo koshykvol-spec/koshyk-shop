@@ -370,8 +370,16 @@ ${
   }
 
   if (quickOrderForm) {
+    var orderSubmitBtn = quickOrderForm.querySelector('button[type="submit"]');
+    var orderSubmitting = false;
+
     quickOrderForm.addEventListener("submit", function (e) {
       e.preventDefault();
+      // Захист від подвійної відправки — Enter у полі + клік по кнопці,
+      // подвійний клік чи повільна мережа могли раніше створити два
+      // ідентичні замовлення з одного натискання.
+      if (orderSubmitting) return;
+
       var statusEl = document.getElementById("orderStatus");
       var qty = Math.max(1, parseInt(qtyInput ? qtyInput.value : "1", 10) || 1);
       var name = document.getElementById("orderName").value.trim();
@@ -381,6 +389,9 @@ ${
         statusEl.className = "review-status error";
         return;
       }
+
+      orderSubmitting = true;
+      if (orderSubmitBtn) orderSubmitBtn.disabled = true;
       statusEl.textContent = "Оформлення…";
       statusEl.className = "review-status";
 
@@ -409,6 +420,10 @@ ${
         .catch(function () {
           statusEl.textContent = "Помилка з'єднання.";
           statusEl.className = "review-status error";
+        })
+        .finally(function () {
+          orderSubmitting = false;
+          if (orderSubmitBtn) orderSubmitBtn.disabled = false;
         });
     });
   }
