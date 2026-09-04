@@ -13,10 +13,6 @@ const CATEGORY_ICONS = {
   vzuttya: "👟",
 };
 
-// TODO: замінити на реальний юзернейм Telegram-бота/каналу магазину,
-// коли він буде створений (за аналогією з AGRO3 client-side ordering).
-const STORE_TELEGRAM_USERNAME = "ahronon_order_bot";
-
 export async function onRequestGet(context) {
   const { env, params } = context;
   const slug = params.slug;
@@ -135,11 +131,6 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
         .join("")
     : '<p class="no-reviews">Поки що відгуків немає — будьте першими.</p>';
 
-  const telegramText = encodeURIComponent(
-    `Вітаю! Хочу замовити: ${p.name} (${p.sku}), ціна ${p.price} ₴`
-  );
-  const telegramUrl = `https://t.me/${STORE_TELEGRAM_USERNAME}?text=${telegramText}`;
-
   const relatedHtml = related.length
     ? related
         .map(
@@ -222,14 +213,37 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 
     <div class="action-row">
       <button type="button" class="add-cart-btn" id="addCartBtn">Додати в кошик</button>
-      <a class="order-btn" href="${telegramUrl}" target="_blank" rel="noopener">
-        Замовити зараз →
-      </a>
+      <button type="button" class="order-btn" id="orderNowBtn">Замовити зараз →</button>
     </div>
 
     <div class="cart-toast" id="cartToast" hidden>Додано в кошик ✓</div>
 
-    <p class="order-note">«Додати в кошик» — зібрати декілька товарів і оформити одне замовлення. «Замовити зараз» — миттєве повідомлення в Telegram тільки з цим товаром.</p>`
+    <p class="order-note">«Додати в кошик» — зібрати декілька товарів і оформити одне замовлення. «Замовити зараз» — оформити замовлення тільки з цим товаром одразу, без переходу в кошик.</p>
+
+    <form class="review-form quick-order-form" id="quickOrderForm" hidden>
+      <h3>Оформити замовлення</h3>
+      <div class="form-row">
+        <label for="orderName">Ваше ім'я</label>
+        <input type="text" id="orderName" required maxlength="100">
+      </div>
+      <div class="form-row">
+        <label for="orderPhone">Телефон</label>
+        <input type="text" id="orderPhone" required maxlength="30" placeholder="+380...">
+      </div>
+      <div class="form-row">
+        <label for="orderDelivery">Доставка</label>
+        <select id="orderDelivery">
+          <option value="pickup">Самовивіз</option>
+          <option value="nova_poshta">Нова Пошта</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="orderNoteInput">Коментар (необов'язково)</label>
+        <textarea id="orderNoteInput" maxlength="500"></textarea>
+      </div>
+      <button type="submit" class="submit-review-btn">Підтвердити замовлення</button>
+      <div class="review-status" id="orderStatus"></div>
+    </form>`
         : `<p class="order-note out-of-stock-note">Цього товару тимчасово немає в наявності. Спробуйте пізніше або перегляньте схожі товари нижче.</p>`
     }
 
@@ -341,6 +355,61 @@ ${
       var toast = document.getElementById("cartToast");
       toast.hidden = false;
       setTimeout(function () { toast.hidden = true; }, 2200);
+    });
+  }
+
+  // "Замовити зараз" — оформлення замовлення напряму через /api/order
+  // (той самий бекенд, що й кошик), без переходу в Telegram вручну.
+  // Ціна перевіряється сервером з D1, тож клієнт передає лише id+qty.
+  var orderNowBtn = document.getElementById("orderNowBtn");
+  var quickOrderForm = document.getElementById("quickOrderForm");
+  if (orderNowBtn && quickOrderForm) {
+    orderNowBtn.addEventListener("click", function () {
+      quickOrderForm.hidden = !quickOrderForm.hidden;
+    });
+  }
+
+  if (quickOrderForm) {
+    quickOrderForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var statusEl = document.getElementById("orderStatus");
+      var qty = Math.max(1, parseInt(qtyInput ? qtyInput.value : "1", 10) || 1);
+      var name = document.getElementById("orderName").value.trim();
+      var phone = document.getElementById("orderPhone").value.trim();
+      if (!name || !phone) {
+        statusEl.textContent = "Вкажіть ім'я та телефон.";
+        statusEl.className = "review-status error";
+        return;
+      }
+      statusEl.textContent = "Оформлення…";
+      statusEl.className = "review-status";
+
+      fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: name,
+          customerPhone: phone,
+          deliveryMethod: document.getElementById("orderDelivery").value,
+          customerNote: document.getElementById("orderNoteInput").value,
+          items: [{ id: product.id, qty: qty }],
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            statusEl.textContent = "Замовлення №" + data.orderNumber + " прийнято! Ми зв'яжемося з вами найближчим часом.";
+            statusEl.className = "review-status success";
+            quickOrderForm.reset();
+          } else {
+            statusEl.textContent = data.error || "Помилка оформлення замовлення.";
+            statusEl.className = "review-status error";
+          }
+        })
+        .catch(function () {
+          statusEl.textContent = "Помилка з'єднання.";
+          statusEl.className = "review-status error";
+        });
     });
   }
 
@@ -516,8 +585,9 @@ function css() {
   .review-form h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; margin-bottom: 16px; }
   .review-form .form-row { margin-bottom: 14px; }
   .review-form label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
-  .review-form input[type="text"], .review-form textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-family: 'Manrope', sans-serif; font-size: 0.88rem; }
+  .review-form input[type="text"], .review-form select, .review-form textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-family: 'Manrope', sans-serif; font-size: 0.88rem; }
   .review-form textarea { min-height: 70px; resize: vertical; }
+  .quick-order-form { margin: 18px 0 0; }
   .star-picker { display: flex; gap: 6px; }
   .star-picker button { background: none; border: none; font-size: 1.6rem; color: var(--line); cursor: pointer; padding: 0; line-height: 1; }
   .star-picker button.active { color: var(--mustard, #E0A400); }
@@ -527,7 +597,7 @@ function css() {
   .review-status.success { color: var(--green-deep); }
   .review-status.error { color: var(--red-deep); }
 
-  .order-btn { display: inline-block; background: var(--ink); color: var(--card); font-weight: 700; font-size: 0.98rem; padding: 15px 30px; border-radius: 100px; transition: background 0.15s ease, transform 0.15s ease; }
+  .order-btn { display: inline-block; background: var(--ink); color: var(--card); font-weight: 700; font-size: 0.98rem; padding: 15px 30px; border-radius: 100px; border: none; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
   .order-btn:hover { background: var(--green-deep); transform: translateY(-1px); }
   .order-note { font-size: 0.82rem; color: var(--ink-soft); margin-top: 12px; max-width: 42ch; }
 
