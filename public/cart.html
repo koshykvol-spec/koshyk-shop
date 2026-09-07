@@ -2,66 +2,86 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Кошик — Ощадний Кошик</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #EBE7DB; --card: #FFFDF7; --ink: #23271F; --ink-soft: #565A4E;
-    --red: #C8462E; --red-deep: #A73A26; --green: #33604A; --green-deep: #244A39;
-    --line: rgba(35, 39, 31, 0.14); --radius: 14px;
+    --bg: #14151F; --card: #1E202E; --ink: #F5F6FA; --ink-soft: #9A9DB0;
+    --line: rgba(245, 246, 250, 0.12);
+    --coral: #FF3D71; --coral-deep: #FF6B93;
+    --teal: #00E5C7; --teal-deep: #4DFFEA;
+    --yellow: #FFE600; --blue: #2ED1FF; --pink: #FF3D9A; --purple: #B94FFF; --green: #39FF6A;
+    --radius: 20px;
+  }
+  html[data-theme="light"] {
+    --bg: #F4F5FA; --card: #FFFFFF; --ink: #14151F; --ink-soft: #6B6E85;
+    --line: rgba(20, 21, 31, 0.12);
+    --coral: #E8265D; --coral-deep: #C71C4D;
+    --teal: #00A98C; --teal-deep: #00806A;
+    --yellow: #E6B800; --blue: #0092C7; --pink: #E62E86; --purple: #8A2BE0; --green: #1FAE4D;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--paper); color: var(--ink); font-family: 'Manrope', system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  body { background: var(--bg); color: var(--ink); font-family: 'Nunito', system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; transition: background 0.2s ease, color 0.2s ease; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 900px; margin: 0 auto; padding: 0 28px; }
+  h1, h2 { font-family: 'Baloo 2', sans-serif; }
 
-  header { padding: 22px 0; }
+  header { padding: 18px 0; background: var(--card); border-bottom: 2px solid var(--teal); box-shadow: 0 0 20px -4px var(--teal); }
   .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1180px; margin: 0 auto; padding: 0 28px; }
-  .logo { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
-  .logo-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--green); color: var(--card); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transform: rotate(-6deg); }
-  nav a { color: var(--ink-soft); font-weight: 600; font-size: 0.94rem; }
-  nav a:hover { color: var(--ink); }
+  .logo { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
+  .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--coral), var(--purple)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; transform: rotate(-6deg); box-shadow: 0 0 16px -2px var(--coral); }
+  .header-actions { display: flex; align-items: center; gap: 14px; }
+  .header-actions nav a { color: var(--ink-soft); font-weight: 700; font-size: 0.92rem; }
+  .header-actions nav a:hover { color: var(--ink); }
+  .theme-toggle { background: var(--bg); border: 2px solid var(--line); width: 38px; height: 38px; border-radius: 100px; display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+  .theme-toggle:hover { border-color: var(--teal); box-shadow: 0 0 14px -3px var(--teal); }
+  .theme-icon-light { display: none; }
+  html[data-theme="light"] .theme-icon-dark { display: none; }
+  html[data-theme="light"] .theme-icon-light { display: inline; }
 
-  h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -0.01em; padding: 20px 0 30px; }
+  h1 { font-weight: 700; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -0.01em; padding: 20px 0 30px; }
 
   .cart-items { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
-  .cart-item { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: flex; align-items: center; gap: 16px; }
-  .item-name { flex: 1; font-weight: 600; font-size: 0.94rem; }
-  .item-sku { font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: var(--ink-soft); display: block; margin-top: 4px; font-weight: 400; }
-  .item-qty { display: inline-flex; align-items: center; border: 1.5px solid var(--line); border-radius: 100px; }
-  .item-qty button { width: 30px; height: 30px; border: none; background: none; cursor: pointer; font-size: 1rem; }
-  .item-qty input { width: 36px; text-align: center; border: none; background: none; font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem; }
-  .item-price { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--red-deep); min-width: 90px; text-align: right; }
+  .cart-item { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: flex; align-items: center; gap: 16px; }
+  .item-name { flex: 1; font-weight: 700; font-size: 0.94rem; }
+  .item-sku { font-family: 'Baloo 2', sans-serif; font-size: 0.76rem; color: var(--ink-soft); display: block; margin-top: 4px; font-weight: 500; }
+  .item-qty { display: inline-flex; align-items: center; border: 2px solid var(--line); border-radius: 100px; }
+  .item-qty button { width: 30px; height: 30px; border: none; background: none; cursor: pointer; font-size: 1rem; color: var(--ink); }
+  .item-qty input { width: 36px; text-align: center; border: none; background: none; font-family: 'Baloo 2', sans-serif; font-size: 0.88rem; color: var(--ink); }
+  .item-price { font-family: 'Baloo 2', sans-serif; font-weight: 800; color: var(--coral); min-width: 90px; text-align: right; }
   .item-remove { color: var(--ink-soft); font-size: 0.8rem; cursor: pointer; background: none; border: none; text-decoration: underline; }
+  .item-remove:hover { color: var(--coral); }
 
   .empty-cart { text-align: center; padding: 70px 20px; color: var(--ink-soft); }
-  .empty-cart a { color: var(--green-deep); font-weight: 700; text-decoration: underline; }
+  .empty-cart a { color: var(--teal); font-weight: 700; text-decoration: underline; }
 
-  .summary { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 24px; margin-bottom: 30px; }
-  .summary-row { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 1.1rem; font-weight: 700; }
+  .summary { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 24px; margin-bottom: 30px; }
+  .summary-row { display: flex; justify-content: space-between; font-family: 'Baloo 2', sans-serif; font-size: 1.1rem; font-weight: 800; }
 
-  .checkout-form { background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 28px; margin-bottom: 60px; }
-  .checkout-form h2 { font-family: 'Fraunces', serif; font-size: 1.2rem; margin-bottom: 20px; }
+  .checkout-form { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 28px; margin-bottom: 60px; }
+  .checkout-form h2 { font-size: 1.2rem; margin-bottom: 20px; }
   .form-row { margin-bottom: 16px; }
   .form-row label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
   .form-row input, .form-row select, .form-row textarea {
-    width: 100%; padding: 11px 14px; border-radius: 8px; border: 1.5px solid var(--line);
-    background: var(--paper); font-family: 'Manrope', sans-serif; font-size: 0.92rem; color: var(--ink);
+    width: 100%; padding: 11px 14px; border-radius: 8px; border: 2px solid var(--line);
+    background: var(--bg); font-family: 'Nunito', sans-serif; font-size: 0.92rem; color: var(--ink);
   }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--teal); }
   .form-row textarea { resize: vertical; min-height: 70px; }
-  .submit-btn { width: 100%; background: var(--ink); color: var(--card); font-weight: 700; font-size: 1rem; padding: 15px; border-radius: 100px; border: none; cursor: pointer; margin-top: 8px; }
-  .submit-btn:hover { background: var(--green-deep); }
-  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .submit-btn { width: 100%; background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff; font-weight: 800; font-size: 1rem; padding: 15px; border-radius: 100px; border: none; cursor: pointer; margin-top: 8px; box-shadow: 0 0 18px -4px var(--purple); }
+  .submit-btn:hover { box-shadow: 0 0 24px -2px var(--coral); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
-  .form-status { margin-top: 14px; font-size: 0.88rem; font-weight: 600; }
-  .form-status.success { color: var(--green-deep); }
-  .form-status.error { color: var(--red-deep); }
+  .form-status { margin-top: 14px; font-size: 0.88rem; font-weight: 700; }
+  .form-status.success { color: var(--teal); }
+  .form-status.error { color: var(--coral); }
 
   .delivery-note { font-size: 0.8rem; color: var(--ink-soft); margin-top: -6px; margin-bottom: 16px; }
-  .summary-delivery { display: flex; justify-content: space-between; font-size: 0.86rem; color: var(--ink-soft); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .summary-delivery { display: flex; justify-content: space-between; font-size: 0.86rem; color: var(--ink-soft); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-weight: 600; }
 
   @media (max-width: 620px) {
     .cart-item { flex-wrap: wrap; }
@@ -77,7 +97,13 @@
       <span class="logo-mark">К</span>
       Ощадний Кошик
     </a>
-    <nav><a href="/#categories">← До каталогу</a></nav>
+    <div class="header-actions">
+      <nav><a href="/#categories">← До каталогу</a></nav>
+      <button type="button" id="themeToggle" class="theme-toggle" aria-label="Перемкнути тему">
+        <span class="theme-icon-dark">🌙</span>
+        <span class="theme-icon-light">☀️</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -138,6 +164,7 @@
 </div>
 
 <script src="/cart.js"></script>
+<script src="/theme.js"></script>
 <script>
 (function () {
   var itemsEl = document.getElementById("cartItems");

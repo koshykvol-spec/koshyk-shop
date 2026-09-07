@@ -2,6 +2,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ощадний Кошик — все для дому за копійки</title>
 <meta name="description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
@@ -27,6 +28,22 @@
     --radius: 20px;
     --radius-lg: 28px;
   }
+  html[data-theme="light"] {
+    --bg: #F4F5FA;
+    --card: #FFFFFF;
+    --ink: #14151F;
+    --ink-soft: #6B6E85;
+    --line: rgba(20, 21, 31, 0.12);
+    --coral: #E8265D;
+    --coral-deep: #C71C4D;
+    --teal: #00A98C;
+    --teal-deep: #00806A;
+    --yellow: #E6B800;
+    --blue: #0092C7;
+    --pink: #E62E86;
+    --purple: #8A2BE0;
+    --green: #1FAE4D;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
@@ -35,6 +52,7 @@
     font-family: 'Nunito', system-ui, sans-serif;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.2s ease, color 0.2s ease;
   }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
@@ -68,6 +86,15 @@
   nav { display: flex; align-items: center; gap: 18px; font-weight: 700; font-size: 0.92rem; flex-shrink: 0; }
   nav a { color: var(--ink-soft); }
   nav a:hover { color: var(--ink); }
+  .theme-toggle {
+    background: var(--bg); border: 2px solid var(--line); width: 38px; height: 38px;
+    border-radius: 100px; display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .theme-toggle:hover { border-color: var(--teal); box-shadow: 0 0 14px -3px var(--teal); }
+  .theme-icon-light { display: none; }
+  html[data-theme="light"] .theme-icon-dark { display: none; }
+  html[data-theme="light"] .theme-icon-light { display: inline; }
   .cart-link { position: relative; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff !important; padding: 9px 16px; border-radius: 100px; box-shadow: 0 0 16px -3px var(--purple); }
   .cart-link:hover { box-shadow: 0 0 22px -2px var(--coral); }
   .cart-badge {
@@ -160,6 +187,10 @@
       <a href="/#categories">Категорії</a>
       <a href="/#about">Про нас</a>
       <a href="/#contacts">Контакти</a>
+      <button type="button" id="themeToggle" class="theme-toggle" aria-label="Перемкнути тему">
+        <span class="theme-icon-dark">🌙</span>
+        <span class="theme-icon-light">☀️</span>
+      </button>
       <a class="cart-link" href="/cart.html">🛒 Кошик <span id="cartBadge" class="cart-badge"></span></a>
     </nav>
   </div>
@@ -272,6 +303,7 @@
 </footer>
 
 <script src="/cart.js"></script>
+<script src="/theme.js"></script>
 <script>
 (function () {
   fetch("/api/categories")

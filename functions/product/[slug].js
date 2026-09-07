@@ -148,12 +148,13 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(p.name)} — Ощадний Кошик</title>
 <meta name="description" content="${escapeHtml(p.name)} — ${p.price} ₴. Купити в Ощадному Кошику.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>${css()}</style>
 </head>
 <body>
@@ -166,11 +167,15 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
     </a>
     <form class="header-search" action="/search" method="get">
       <input type="text" name="q" placeholder="Пошук товарів…">
-      <button type="submit" aria-label="Знайти">🔍</button>
+      <button type="submit">🔍</button>
     </form>
     <nav>
       <a href="/#categories">Категорії</a>
       <a href="/#contacts">Контакти</a>
+      <button type="button" id="themeToggle" class="theme-toggle" aria-label="Перемкнути тему">
+        <span class="theme-icon-dark">🌙</span>
+        <span class="theme-icon-light">☀️</span>
+      </button>
       <a href="/cart.html" class="cart-link">
         Кошик <span id="cartBadge" class="cart-badge" style="display:none">0</span>
       </a>
@@ -220,7 +225,7 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 
     <p class="order-note">«Додати в кошик» — зібрати декілька товарів і оформити одне замовлення. «Замовити зараз» — оформити замовлення тільки з цим товаром одразу, без переходу в кошик.</p>
 
-    <form class="review-form quick-order-form" id="quickOrderForm" hidden>
+    <form class="side-form quick-order-form" id="quickOrderForm" hidden>
       <h3>Оформити замовлення</h3>
       <div class="form-row">
         <label for="orderName">Ваше ім'я</label>
@@ -241,8 +246,8 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
         <label for="orderNoteInput">Коментар (необов'язково)</label>
         <textarea id="orderNoteInput" maxlength="500"></textarea>
       </div>
-      <button type="submit" class="submit-review-btn">Підтвердити замовлення</button>
-      <div class="review-status" id="orderStatus"></div>
+      <button type="submit" class="submit-btn">Підтвердити замовлення</button>
+      <div class="form-status" id="orderStatus"></div>
     </form>`
         : `<p class="order-note out-of-stock-note">Цього товару тимчасово немає в наявності. Спробуйте пізніше або перегляньте схожі товари нижче.</p>`
     }
@@ -270,7 +275,7 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
       <button type="button" class="write-review-btn" id="writeReviewBtn">Написати відгук →</button>
     </div>
 
-    <form class="review-form" id="reviewForm" hidden>
+    <form class="side-form" id="reviewForm" hidden>
       <h3>Залишити відгук</h3>
       <div class="form-row">
         <label for="reviewName">Ваше ім'я</label>
@@ -291,8 +296,8 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
         <label for="reviewText">Текст відгуку (необов'язково)</label>
         <textarea id="reviewText" maxlength="2000"></textarea>
       </div>
-      <button type="submit" class="submit-review-btn">Надіслати</button>
-      <div class="review-status" id="reviewStatus"></div>
+      <button type="submit" class="submit-btn">Надіслати</button>
+      <div class="form-status" id="reviewStatus"></div>
     </form>
   </div>
 </section>
@@ -316,6 +321,7 @@ ${
 </footer>
 
 <script src="/cart.js"></script>
+<script src="/theme.js"></script>
 <script>
 (function () {
   var product = {
@@ -386,14 +392,14 @@ ${
       var phone = document.getElementById("orderPhone").value.trim();
       if (!name || !phone) {
         statusEl.textContent = "Вкажіть ім'я та телефон.";
-        statusEl.className = "review-status error";
+        statusEl.className = "form-status error";
         return;
       }
 
       orderSubmitting = true;
       if (orderSubmitBtn) orderSubmitBtn.disabled = true;
       statusEl.textContent = "Оформлення…";
-      statusEl.className = "review-status";
+      statusEl.className = "form-status";
 
       fetch("/api/order", {
         method: "POST",
@@ -410,16 +416,16 @@ ${
         .then(function (data) {
           if (data.ok) {
             statusEl.textContent = "Замовлення №" + data.orderNumber + " прийнято! Ми зв'яжемося з вами найближчим часом.";
-            statusEl.className = "review-status success";
+            statusEl.className = "form-status success";
             quickOrderForm.reset();
           } else {
             statusEl.textContent = data.error || "Помилка оформлення замовлення.";
-            statusEl.className = "review-status error";
+            statusEl.className = "form-status error";
           }
         })
         .catch(function () {
           statusEl.textContent = "Помилка з'єднання.";
-          statusEl.className = "review-status error";
+          statusEl.className = "form-status error";
         })
         .finally(function () {
           orderSubmitting = false;
@@ -476,11 +482,11 @@ ${
       var rating = parseInt(reviewRatingInput.value, 10);
       if (!rating) {
         statusEl.textContent = "Оберіть оцінку зірками.";
-        statusEl.className = "review-status error";
+        statusEl.className = "form-status error";
         return;
       }
       statusEl.textContent = "Надсилання…";
-      statusEl.className = "review-status";
+      statusEl.className = "form-status";
 
       fetch("/api/reviews", {
         method: "POST",
@@ -496,18 +502,18 @@ ${
         .then(function (data) {
           if (data.ok) {
             statusEl.textContent = "Дякуємо! Відгук з'явиться на сторінці після перевірки модератором.";
-            statusEl.className = "review-status success";
+            statusEl.className = "form-status success";
             reviewForm.reset();
             reviewRatingInput.value = "0";
             starBtns.forEach ? starBtns.forEach(function (b) { b.classList.remove("active"); }) : null;
           } else {
             statusEl.textContent = data.error || "Помилка надсилання.";
-            statusEl.className = "review-status error";
+            statusEl.className = "form-status error";
           }
         })
         .catch(function () {
           statusEl.textContent = "Помилка з'єднання.";
-          statusEl.className = "review-status error";
+          statusEl.className = "form-status error";
         });
     });
   }
@@ -528,118 +534,138 @@ function escapeHtml(str) {
 function css() {
   return `
   :root {
-    --paper: #EBE7DB; --card: #FFFDF7; --ink: #23271F; --ink-soft: #565A4E;
-    --red: #C8462E; --red-deep: #A73A26; --green: #33604A; --green-deep: #244A39;
-    --line: rgba(35, 39, 31, 0.14); --radius: 14px;
+    --bg: #14151F; --card: #1E202E; --ink: #F5F6FA; --ink-soft: #9A9DB0;
+    --line: rgba(245, 246, 250, 0.12);
+    --coral: #FF3D71; --coral-deep: #FF6B93;
+    --teal: #00E5C7; --teal-deep: #4DFFEA;
+    --yellow: #FFE600; --blue: #2ED1FF; --pink: #FF3D9A; --purple: #B94FFF; --green: #39FF6A;
+    --radius: 20px;
+  }
+  html[data-theme="light"] {
+    --bg: #F4F5FA; --card: #FFFFFF; --ink: #14151F; --ink-soft: #6B6E85;
+    --line: rgba(20, 21, 31, 0.12);
+    --coral: #E8265D; --coral-deep: #C71C4D;
+    --teal: #00A98C; --teal-deep: #00806A;
+    --yellow: #E6B800; --blue: #0092C7; --pink: #E62E86; --purple: #8A2BE0; --green: #1FAE4D;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--paper); color: var(--ink); font-family: 'Manrope', system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  body { background: var(--bg); color: var(--ink); font-family: 'Nunito', system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; transition: background 0.2s ease, color 0.2s ease; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+  h1, h2, h3 { font-family: 'Baloo 2', sans-serif; }
 
-  header { padding: 22px 0; }
-  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .logo { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
-  .logo-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--green); color: var(--card); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transform: rotate(-6deg); }
-  nav { display: flex; gap: 26px; font-size: 0.94rem; font-weight: 600; color: var(--ink-soft); }
+  header { padding: 18px 0; background: var(--card); border-bottom: 2px solid var(--teal); box-shadow: 0 0 20px -4px var(--teal); position: sticky; top: 0; z-index: 20; }
+  .header-row { display: flex; align-items: center; gap: 18px; }
+  .logo { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .logo-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--coral), var(--purple)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; transform: rotate(-6deg); box-shadow: 0 0 16px -2px var(--coral); }
+  .header-search { flex: 1; max-width: 380px; margin: 0 20px; display: flex; }
+  .header-search input { flex: 1; padding: 10px 16px; border-radius: 100px 0 0 100px; border: 2px solid var(--teal); border-right: none; background: var(--bg); color: var(--ink); font-size: 0.86rem; }
+  .header-search input::placeholder { color: var(--ink-soft); }
+  .header-search button { border: 2px solid var(--teal); border-radius: 0 100px 100px 0; background: var(--yellow); color: #14151F; padding: 0 16px; cursor: pointer; font-weight: 800; box-shadow: 0 0 14px -2px var(--yellow); }
+  .header-search button:hover { background: var(--coral); color: #fff; }
+  nav { display: flex; align-items: center; gap: 18px; font-size: 0.92rem; font-weight: 700; color: var(--ink-soft); flex-shrink: 0; }
   nav a:hover { color: var(--ink); }
-  .cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
-  .header-search { display: flex; flex: 1; max-width: 380px; margin: 0 20px; }
-  .header-search input { flex: 1; padding: 10px 16px; border-radius: 100px 0 0 100px; border: 1.5px solid var(--line); border-right: none; background: var(--card); font-size: 0.86rem; }
-  .header-search button { border: 1.5px solid var(--line); border-radius: 0 100px 100px 0; background: var(--ink); color: var(--card); padding: 0 16px; cursor: pointer; }
-  .cart-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; background: var(--red); color: #fff; border-radius: 100px; font-size: 0.72rem; font-weight: 700; }
+  .theme-toggle { background: var(--bg); border: 2px solid var(--line); width: 38px; height: 38px; border-radius: 100px; display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; flex-shrink: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+  .theme-toggle:hover { border-color: var(--teal); box-shadow: 0 0 14px -3px var(--teal); }
+  .theme-icon-light { display: none; }
+  html[data-theme="light"] .theme-icon-dark { display: none; }
+  html[data-theme="light"] .theme-icon-light { display: inline; }
+  .cart-link { position: relative; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff !important; padding: 9px 16px; border-radius: 100px; box-shadow: 0 0 16px -3px var(--purple); }
+  .cart-link:hover { box-shadow: 0 0 22px -2px var(--coral); }
 
   .crumbs { padding: 4px 28px 24px; font-size: 0.86rem; color: var(--ink-soft); }
   .crumbs a:hover { color: var(--ink); }
   .crumbs span { margin: 0 4px; }
 
   .product-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 46px; padding-bottom: 60px; align-items: start; }
-  .photo-box { aspect-ratio: 1; background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 5rem; overflow: hidden; position: relative; }
+  .photo-box { aspect-ratio: 1; background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 5rem; overflow: hidden; position: relative; }
   .photo-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .photo-thumbs { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-  .thumb-btn { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--line); padding: 0; cursor: pointer; background: var(--card); position: relative; }
-  .thumb-btn.active { border-color: var(--green); border-width: 2px; }
+  .thumb-btn { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); padding: 0; cursor: pointer; background: var(--card); position: relative; }
+  .thumb-btn.active { border-color: var(--teal); box-shadow: 0 0 14px -4px var(--teal); }
   .thumb-btn img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
 
-  .sku-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--ink-soft); background: var(--card); border: 1px solid var(--line); display: inline-block; padding: 5px 11px; border-radius: 100px; margin-bottom: 16px; }
-  .product-info h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 10px; }
-  .meta-line { color: var(--ink-soft); font-size: 0.94rem; margin-bottom: 20px; text-transform: capitalize; }
+  .sku-tag { font-family: 'Baloo 2', sans-serif; font-size: 0.78rem; color: var(--ink-soft); background: var(--card); border: 1.5px solid var(--line); display: inline-block; padding: 5px 11px; border-radius: 100px; margin-bottom: 16px; font-weight: 700; }
+  .product-info h1 { font-weight: 700; font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .meta-line { color: var(--ink-soft); font-size: 0.94rem; margin-bottom: 20px; text-transform: capitalize; font-weight: 600; }
 
   .price-block { margin-bottom: 26px; }
-  .price { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 2rem; color: var(--red-deep); }
+  .price { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 2rem; color: var(--coral); }
   .price.price-out { color: var(--ink-soft); text-decoration: line-through; }
-  .stock-badge { display: inline-block; margin-left: 12px; background: rgba(200,70,46,0.1); color: var(--red-deep); font-size: 0.82rem; font-weight: 700; padding: 5px 12px; border-radius: 100px; vertical-align: middle; }
-  .out-of-stock-note { background: var(--paper); border: 1.5px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .stock-badge { display: inline-block; margin-left: 12px; background: rgba(255,61,113,0.14); color: var(--coral); font-size: 0.82rem; font-weight: 700; padding: 5px 12px; border-radius: 100px; vertical-align: middle; }
+  .out-of-stock-note { background: var(--card); border: 2px solid var(--line); border-radius: 12px; padding: 16px 18px; }
 
-  .share-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1.5px solid var(--line); color: var(--ink-soft); font-weight: 600; font-size: 0.86rem; padding: 9px 18px; border-radius: 100px; cursor: pointer; margin: 18px 0; }
-  .share-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .share-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 2px solid var(--line); color: var(--ink-soft); font-weight: 700; font-size: 0.86rem; padding: 9px 18px; border-radius: 100px; cursor: pointer; margin: 18px 0; }
+  .share-btn:hover { border-color: var(--teal); color: var(--ink); box-shadow: 0 0 14px -4px var(--teal); }
 
-  .delivery-box { background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 26px; }
-  .delivery-box p { font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .delivery-box { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 26px; }
+  .delivery-box p { font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
   .delivery-box p:last-child { margin-bottom: 0; }
-  .delivery-box b { color: var(--ink); font-weight: 700; }
+  .delivery-box b { color: var(--ink); font-weight: 800; }
   .delivery-icon { flex-shrink: 0; }
 
-  .reviews-section { background: var(--card); padding: 50px 0 60px; border-top: 1.5px solid var(--line); }
-  .reviews-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.4rem; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
-  .reviews-avg { font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; font-weight: 600; color: var(--ink-soft); background: var(--paper); padding: 4px 12px; border-radius: 100px; }
+  .reviews-section { background: var(--card); padding: 50px 0 60px; border-top: 2px solid var(--line); }
+  .reviews-section h2 { font-weight: 700; font-size: 1.4rem; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+  .reviews-avg { font-family: 'Baloo 2', sans-serif; font-size: 0.9rem; font-weight: 700; color: var(--ink-soft); background: var(--bg); padding: 4px 12px; border-radius: 100px; }
   .reviews-list { display: flex; flex-direction: column; gap: 18px; margin-bottom: 28px; }
   .review-item { border-bottom: 1px solid var(--line); padding-bottom: 18px; }
   .review-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-  .review-stars { color: var(--mustard, #E0A400); font-size: 1rem; letter-spacing: 1px; }
+  .review-stars { color: var(--yellow); font-size: 1rem; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,230,0,0.4); }
   .review-author { font-weight: 700; font-size: 0.9rem; }
   .review-date { font-size: 0.78rem; color: var(--ink-soft); }
   .review-text { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.6; }
   .no-reviews { color: var(--ink-soft); font-size: 0.9rem; }
 
-  .write-review-cta { background: var(--paper); border: 1.5px dashed var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; }
-  .write-review-btn { background: none; border: none; color: var(--green-deep); font-weight: 700; font-size: 0.92rem; cursor: pointer; padding: 0; }
+  .write-review-cta { background: var(--bg); border: 2px dashed var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 20px; }
+  .write-review-btn { background: none; border: none; color: var(--teal); font-weight: 700; font-size: 0.92rem; cursor: pointer; padding: 0; }
   .write-review-btn:hover { text-decoration: underline; }
 
-  .review-form { background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; padding: 24px; max-width: 480px; }
-  .review-form h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; margin-bottom: 16px; }
-  .review-form .form-row { margin-bottom: 14px; }
-  .review-form label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
-  .review-form input[type="text"], .review-form select, .review-form textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); font-family: 'Manrope', sans-serif; font-size: 0.88rem; }
-  .review-form textarea { min-height: 70px; resize: vertical; }
+  .side-form { background: var(--bg); border: 2px solid var(--line); border-radius: var(--radius); padding: 24px; max-width: 480px; }
+  .side-form h3 { font-size: 1.1rem; margin-bottom: 16px; }
+  .side-form .form-row { margin-bottom: 14px; }
+  .side-form label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .side-form input[type="text"], .side-form select, .side-form textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 2px solid var(--line); background: var(--card); color: var(--ink); font-family: 'Nunito', sans-serif; font-size: 0.88rem; }
+  .side-form input:focus, .side-form select:focus, .side-form textarea:focus { outline: none; border-color: var(--teal); }
+  .side-form textarea { min-height: 70px; resize: vertical; }
   .quick-order-form { margin: 18px 0 0; }
   .star-picker { display: flex; gap: 6px; }
   .star-picker button { background: none; border: none; font-size: 1.6rem; color: var(--line); cursor: pointer; padding: 0; line-height: 1; }
-  .star-picker button.active { color: var(--mustard, #E0A400); }
-  .submit-review-btn { background: var(--green); color: var(--card); font-weight: 700; padding: 11px 24px; border-radius: 100px; border: none; cursor: pointer; font-size: 0.9rem; }
-  .submit-review-btn:hover { background: var(--green-deep); }
-  .review-status { margin-top: 10px; font-size: 0.84rem; font-weight: 600; }
-  .review-status.success { color: var(--green-deep); }
-  .review-status.error { color: var(--red-deep); }
+  .star-picker button.active { color: var(--yellow); text-shadow: 0 0 8px rgba(255,230,0,0.4); }
+  .submit-btn { background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff; font-weight: 800; padding: 11px 24px; border-radius: 100px; border: none; cursor: pointer; font-size: 0.9rem; box-shadow: 0 0 16px -3px var(--purple); }
+  .submit-btn:hover { box-shadow: 0 0 22px -2px var(--coral); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+  .form-status { margin-top: 10px; font-size: 0.84rem; font-weight: 700; }
+  .form-status.success { color: var(--teal); }
+  .form-status.error { color: var(--coral); }
 
-  .order-btn { display: inline-block; background: var(--ink); color: var(--card); font-weight: 700; font-size: 0.98rem; padding: 15px 30px; border-radius: 100px; border: none; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
-  .order-btn:hover { background: var(--green-deep); transform: translateY(-1px); }
-  .order-note { font-size: 0.82rem; color: var(--ink-soft); margin-top: 12px; max-width: 42ch; }
+  .order-btn { display: inline-block; background: linear-gradient(135deg, var(--purple), var(--coral)); color: #fff; font-weight: 800; font-size: 0.98rem; padding: 15px 30px; border-radius: 100px; border: none; cursor: pointer; box-shadow: 0 0 18px -4px var(--purple); transition: box-shadow 0.15s ease, transform 0.15s ease; }
+  .order-btn:hover { box-shadow: 0 0 24px -2px var(--coral); transform: translateY(-1px); }
+  .order-note { font-size: 0.82rem; color: var(--ink-soft); margin-top: 12px; max-width: 42ch; font-weight: 600; }
 
   .qty-row { margin-bottom: 22px; }
   .qty-row label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); font-weight: 700; margin-bottom: 8px; }
-  .qty-control { display: inline-flex; align-items: center; border: 1.5px solid var(--line); border-radius: 100px; background: var(--card); }
+  .qty-control { display: inline-flex; align-items: center; border: 2px solid var(--line); border-radius: 100px; background: var(--card); }
   .qty-control button { width: 38px; height: 38px; border: none; background: none; font-size: 1.1rem; cursor: pointer; color: var(--ink); }
-  .qty-control input { width: 50px; text-align: center; border: none; background: none; font-family: 'IBM Plex Mono', monospace; font-size: 0.94rem; color: var(--ink); -moz-appearance: textfield; }
+  .qty-control input { width: 50px; text-align: center; border: none; background: none; font-family: 'Baloo 2', sans-serif; font-size: 0.94rem; color: var(--ink); -moz-appearance: textfield; }
   .qty-control input::-webkit-outer-spin-button, .qty-control input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
   .action-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .add-cart-btn { background: var(--green); color: var(--card); font-weight: 700; font-size: 0.98rem; padding: 15px 26px; border-radius: 100px; border: none; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
-  .add-cart-btn:hover { background: var(--green-deep); transform: translateY(-1px); }
-  .cart-toast { margin-top: 14px; font-size: 0.86rem; font-weight: 600; color: var(--green-deep); }
+  .add-cart-btn { background: var(--teal); color: #14151F; font-weight: 800; font-size: 0.98rem; padding: 15px 26px; border-radius: 100px; border: none; cursor: pointer; box-shadow: 0 0 18px -4px var(--teal); transition: box-shadow 0.15s ease, transform 0.15s ease; }
+  .add-cart-btn:hover { box-shadow: 0 0 24px -2px var(--teal-deep); transform: translateY(-1px); }
+  .cart-toast { margin-top: 14px; font-size: 0.86rem; font-weight: 700; color: var(--teal); }
 
-  .description { margin-top: 34px; padding-top: 24px; border-top: 1.5px solid var(--line); }
-  .description h2 { font-family: 'Fraunces', serif; font-size: 1.1rem; margin-bottom: 10px; }
+  .description { margin-top: 34px; padding-top: 24px; border-top: 2px solid var(--line); }
+  .description h2 { font-size: 1.1rem; margin-bottom: 10px; }
   .description p { color: var(--ink-soft); font-size: 0.94rem; }
 
-  .related-section { background: var(--card); padding: 50px 0 60px; border-top: 1.5px solid var(--line); }
-  .related-section h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.4rem; margin-bottom: 24px; }
+  .related-section { background: var(--card); padding: 50px 0 60px; border-top: 2px solid var(--line); }
+  .related-section h2 { font-weight: 700; font-size: 1.4rem; margin-bottom: 24px; }
   .related-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .related-card { background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.15s ease; }
-  .related-card:hover { transform: translateY(-3px); }
+  .related-card { background: var(--bg); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+  .related-card:hover { transform: translateY(-3px); border-color: var(--teal); box-shadow: 0 0 20px -6px var(--teal); }
   .related-thumb { aspect-ratio: 1; background: var(--card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
-  .related-name { font-size: 0.86rem; font-weight: 600; line-height: 1.3; }
-  .related-price { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--red-deep); font-size: 0.9rem; }
+  .related-name { font-size: 0.86rem; font-weight: 700; line-height: 1.3; }
+  .related-price { font-family: 'Baloo 2', sans-serif; font-weight: 800; color: var(--coral); font-size: 0.9rem; }
 
   footer { padding: 40px 0; }
   .foot-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 0.86rem; color: var(--ink-soft); }
