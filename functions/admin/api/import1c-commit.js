@@ -97,6 +97,7 @@ export async function onRequestPost(context) {
   const skippedSamples = [];
   const unmatchedCategoriesSet = new Set();
   const backInStock = [];
+  const wentUnavailableInFile = []; // товар Є у файлі, але 1С явно позначила inStock:false
   const keptInStockSkus = new Set();
 
   for (const item of data) {
@@ -131,6 +132,9 @@ export async function onRequestPost(context) {
       if (inStockValue === 1) keptInStockSkus.add(sku);
       if (existing.in_stock === 0 && inStockValue === 1) {
         backInStock.push({ sku, name });
+      }
+      if (existing.in_stock === 1 && inStockValue === 0 && item.inStock === false) {
+        wentUnavailableInFile.push({ sku, name });
       }
       statements.push(
         env.koshyk_db
@@ -183,6 +187,7 @@ export async function onRequestPost(context) {
     markedOutOfStock: outOfStockRow ? outOfStockRow.cnt : 0,
     backInStock,
     disappeared,
+    wentUnavailableInFile,
   });
 }
 

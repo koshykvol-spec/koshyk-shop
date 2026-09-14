@@ -161,6 +161,11 @@ function clientJs() {
             data.backInStock.map(function (p) { return '<li>' + escapeHtmlJs(p.sku) + ' · ' + escapeHtmlJs(p.name) + '</li>'; }).join('') +
             '</ul></details>';
         }
+        if (data.wentUnavailableInFile && data.wentUnavailableInFile.length) {
+          html += '<details><summary>⏸ Позначено недоступними самою 1С (є у файлі, inStock: false): ' + data.wentUnavailableInFile.length + '</summary><ul class="change-list">' +
+            data.wentUnavailableInFile.map(function (p) { return '<li>' + escapeHtmlJs(p.sku) + ' · ' + escapeHtmlJs(p.name) + '</li>'; }).join('') +
+            '</ul></details>';
+        }
         if (data.disappeared && data.disappeared.length) {
           html += '<details><summary>🗑 Зникли з вигрузки (є в базі, нема у файлі) — деактивовано: ' + data.disappeared.length + '</summary><ul class="change-list">' +
             data.disappeared.map(function (p) { return '<li>' + escapeHtmlJs(p.sku) + ' · ' + escapeHtmlJs(p.name) + '</li>'; }).join('') +
