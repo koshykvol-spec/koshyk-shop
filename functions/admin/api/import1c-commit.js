@@ -86,6 +86,7 @@ export async function onRequestPost(context) {
   const { results: existingRows } = await env.koshyk_db.prepare("SELECT id, sku, name, in_stock FROM products").all();
   const existingBySku = {};
   existingRows.forEach((r) => { existingBySku[r.sku] = r; });
+  const fileSkus = new Set(data.map((item) => item.sku).filter(Boolean));
 
   // Крок 1: усі товари тимчасово "немає в наявності"
   await env.koshyk_db.prepare("UPDATE products SET in_stock = 0").run();
@@ -133,8 +134,8 @@ export async function onRequestPost(context) {
       if (existing.in_stock === 0 && inStockValue === 1) {
         backInStock.push({ sku, name });
       }
-      if (existing.in_stock === 1 && inStockValue === 0 && item.inStock === false) {
-        wentUnavailableInFile.push({ sku, name });
+      if (inStockValue === 0 && item.inStock === false) {
+        wentUnavailableInFile.push({ sku, name, alreadyInactive: existing.in_stock === 0 });
       }
       statements.push(
         env.koshyk_db
@@ -159,6 +160,9 @@ export async function onRequestPost(context) {
           .bind(sku, skuSource, sku.toLowerCase(), name, name.toLowerCase(), slug, price, categoryId, brand, inStockValue, updatedAt)
       );
       added++;
+      if (inStockValue === 0 && item.inStock === false) {
+        wentUnavailableInFile.push({ sku, name, alreadyInactive: false });
+      }
     }
   }
 
@@ -173,8 +177,10 @@ export async function onRequestPost(context) {
   // Товари, які до імпорту були в наявності, але у файлі відсутні
   // (не потрапили ні в updated з in_stock=1, ні в added) — деактивовані кроком 1
   const disappeared = existingRows
-    .filter((r) => r.in_stock === 1 && !keptInStockSkus.has(r.sku))
-    .map((r) => ({ sku: r.sku, name: r.name }));
+    .filter((r) => !fileSkus.has(r.sku))
+    .map((r) => ({ sku: r.sku, name: r.name, alreadyInactive: r.in_stock === 0 }));
+  const disappearedNewCount = disappeared.filter((r) => !r.alreadyInactive).length;
+  const wentUnavailableNewCount = wentUnavailableInFile.filter((r) => !r.alreadyInactive).length;
 
   return json({
     ok: true,
@@ -187,7 +193,9 @@ export async function onRequestPost(context) {
     markedOutOfStock: outOfStockRow ? outOfStockRow.cnt : 0,
     backInStock,
     disappeared,
+    disappearedNewCount,
     wentUnavailableInFile,
+    wentUnavailableNewCount,
   });
 }
 
