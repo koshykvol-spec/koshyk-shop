@@ -16,6 +16,10 @@
 // пошуку (SQLite LIKE/LOWER() не розпізнають кирилицю). При UPDATE
 // існуючого товару sku не змінюється — оновлюємо лише name_lower.
 // При INSERT нового товару записуємо обидві колонки.
+//
+// backInStock / disappeared: знімок in_stock БЕРЕТЬСЯ ДО кроку 1
+// (обнулення), тому дозволяє порівняти "було → стало" по кожному sku
+// і показати в адмінці не лише лічильники, а й конкретні товари.
 
 const CATEGORY_MAP = {
   "КАНЦТОВАРИ": "kanctovary",
@@ -78,14 +82,13 @@ export async function onRequestPost(context) {
   const categoryIdBySlug = {};
   categories.forEach((c) => { categoryIdBySlug[c.slug] = c.id; });
 
+  // Стан ДО обнулення — потрібен, щоб порівняти "було/стало" по кожному sku
+  const { results: existingRows } = await env.koshyk_db.prepare("SELECT id, sku, name, in_stock FROM products").all();
+  const existingBySku = {};
+  existingRows.forEach((r) => { existingBySku[r.sku] = r; });
+
   // Крок 1: усі товари тимчасово "немає в наявності"
   await env.koshyk_db.prepare("UPDATE products SET in_stock = 0").run();
-
-  // Крок 2: існуючі SKU — для розрізнення UPDATE/INSERT одним запитом,
-  // а не 2000 окремих SELECT
-  const { results: existingRows } = await env.koshyk_db.prepare("SELECT id, sku FROM products").all();
-  const existingIdBySku = {};
-  existingRows.forEach((r) => { existingIdBySku[r.sku] = r.id; });
 
   const statements = [];
   let updated = 0;
@@ -93,6 +96,8 @@ export async function onRequestPost(context) {
   let skippedInvalid = 0;
   const skippedSamples = [];
   const unmatchedCategoriesSet = new Set();
+  const backInStock = [];
+  const keptInStockSkus = new Set();
 
   for (const item of data) {
     const sku = item.sku;
@@ -121,15 +126,19 @@ export async function onRequestPost(context) {
       continue;
     }
 
-    const existingId = existingIdBySku[sku];
-    if (existingId) {
+    const existing = existingBySku[sku];
+    if (existing) {
+      if (inStockValue === 1) keptInStockSkus.add(sku);
+      if (existing.in_stock === 0 && inStockValue === 1) {
+        backInStock.push({ sku, name });
+      }
       statements.push(
         env.koshyk_db
           .prepare(
             `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, in_stock = ?,
              source_updated_at = ?, updated_at = datetime('now') WHERE id = ?`
           )
-          .bind(name, name.toLowerCase(), price, brand, inStockValue, updatedAt, existingId)
+          .bind(name, name.toLowerCase(), price, brand, inStockValue, updatedAt, existing.id)
       );
       updated++;
     } else {
@@ -157,6 +166,12 @@ export async function onRequestPost(context) {
     .prepare("SELECT COUNT(*) as cnt FROM products WHERE in_stock = 0")
     .first();
 
+  // Товари, які до імпорту були в наявності, але у файлі відсутні
+  // (не потрапили ні в updated з in_stock=1, ні в added) — деактивовані кроком 1
+  const disappeared = existingRows
+    .filter((r) => r.in_stock === 1 && !keptInStockSkus.has(r.sku))
+    .map((r) => ({ sku: r.sku, name: r.name }));
+
   return json({
     ok: true,
     total: data.length,
@@ -166,6 +181,8 @@ export async function onRequestPost(context) {
     skippedSamples,
     unmatchedCategories: Array.from(unmatchedCategoriesSet),
     markedOutOfStock: outOfStockRow ? outOfStockRow.cnt : 0,
+    backInStock,
+    disappeared,
   });
 }
 

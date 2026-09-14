@@ -156,6 +156,17 @@ function clientJs() {
           '<p>Додано нових: ' + data.added + '</p>' +
           '<p>Позначено «немає в наявності»: ' + data.markedOutOfStock + '</p>';
 
+        if (data.backInStock && data.backInStock.length) {
+          html += '<details open><summary>🔄 Знову в наявності (' + data.backInStock.length + ')</summary><ul class="change-list">' +
+            data.backInStock.map(function (p) { return '<li>' + escapeHtmlJs(p.sku) + ' · ' + escapeHtmlJs(p.name) + '</li>'; }).join('') +
+            '</ul></details>';
+        }
+        if (data.disappeared && data.disappeared.length) {
+          html += '<details><summary>🗑 Зникли з вигрузки (є в базі, нема у файлі) — деактивовано: ' + data.disappeared.length + '</summary><ul class="change-list">' +
+            data.disappeared.map(function (p) { return '<li>' + escapeHtmlJs(p.sku) + ' · ' + escapeHtmlJs(p.name) + '</li>'; }).join('') +
+            '</ul></details>';
+        }
+
         if (data.skippedInvalid > 0) {
           html += '<p class="error"><b>Пропущено (не оновлено й не додано): ' + data.skippedInvalid + '</b></p>';
           if (data.unmatchedCategories.length) {
@@ -209,6 +220,10 @@ function css() {
   .result-box p { margin-bottom: 8px; }
   .result-box .error { color: var(--red-deep); font-weight: 600; }
   .result-box .success { color: var(--green-deep); font-weight: 700; }
+  .result-box details { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .result-box summary { cursor: pointer; font-weight: 600; }
+  .change-list { margin: 8px 0 0 4px; max-height: 260px; overflow-y: auto; }
+  .change-list li { list-style: none; font-size: 0.84rem; padding: 3px 0; border-bottom: 1px solid var(--line); }
   .skipped-list { margin: 6px 0 10px 18px; }
   .skipped-list li { margin-bottom: 4px; }
   .soft { color: var(--ink-soft); font-size: 0.82rem; font-weight: 400; }
