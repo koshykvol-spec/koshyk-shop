@@ -1,66 +1,20 @@
 // POST /admin/api/import1c-commit
 // Тіло: сирий JSON-масив products.json з 1С.
 //
-// Стратегія "немає в наявності" реалізована у два кроки, щоб уникнути
-// величезного SQL NOT IN (...) на 2000+ sku:
+// Стратегія "немає в наявності" у два кроки (уникаємо NOT IN на 2000+ sku):
 //   1. Одним UPDATE позначаємо УСІ товари in_stock = 0.
-//   2. Кожен товар з файлу піднімає себе назад до in_stock = 1
-//      (заразом оновлюючи ціну/назву/бренд, або створюючись як новий).
-// Товари, яких у файлі не було, так і лишаються in_stock = 0.
+//   2. Кожен товар з файлу піднімає себе назад через statements з buildDiff().
+// Товари, яких у файлі не було, лишаються in_stock = 0.
 //
-// НЕ чіпається при оновленні існуючих товарів: image_url,
-// has_real_photo, product_content (опис/SEO/атрибути) — це окрема
-// відповідальність (адмінка товарів / масові дії / annotations).
+// Diff (хто created/updated/backInStock/priceChanges/moved/disappeared)
+// рахується buildDiff() з _import1c-lib.js — тим самим кодом, що й
+// import1c-validate.js, тому прогноз на «Перевірити» і факт після
+// «Імпортувати» завжди узгоджені.
 //
-// name_lower/sku_lower: окремі lowercase-колонки для регістронезалежного
-// пошуку (SQLite LIKE/LOWER() не розпізнають кирилицю). При UPDATE
-// існуючого товару sku не змінюється — оновлюємо лише name_lower.
-// При INSERT нового товару записуємо обидві колонки.
-//
-// backInStock / disappeared: знімок in_stock БЕРЕТЬСЯ ДО кроку 1
-// (обнулення), тому дозволяє порівняти "було → стало" по кожному sku
-// і показати в адмінці не лише лічильники, а й конкретні товари.
+// НЕ чіпається при оновленні існуючих товарів: image_url, has_real_photo,
+// product_content (опис/SEO) — окрема відповідальність (адмінка товарів).
 
-const CATEGORY_MAP = {
-  "КАНЦТОВАРИ": "kanctovary",
-  "ГОСПОДАРЧІ ТОВАРИ": "gospodarchi",
-  "ІГРАШКИ": "igrashky",
-  "ОДЯГ": "odyah",
-  "ХІМІЯ": "himiya",
-  "БІЖУТЕРІЯ": "bizhuteriya",
-  "ВЗУТТЯ": "vzuttya",
-};
-
-function normalizeCategory(raw) {
-  if (!raw) return null;
-  const key = raw.trim().toUpperCase();
-  return CATEGORY_MAP[key] || null;
-}
-
-const TRANSLIT_MAP = {
-  а: "a", б: "b", в: "v", г: "h", ґ: "g", д: "d", е: "e", є: "ie", ж: "zh",
-  з: "z", и: "y", і: "i", ї: "i", й: "i", к: "k", л: "l", м: "m", н: "n",
-  о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
-  ч: "ch", ш: "sh", щ: "shch", ь: "", ю: "iu", я: "ia", "'": "",
-};
-
-function transliterate(text) {
-  return text
-    .toLowerCase()
-    .split("")
-    .map((ch) => (ch in TRANSLIT_MAP ? TRANSLIT_MAP[ch] : ch))
-    .join("");
-}
-
-function makeSlug(name, sku) {
-  let slug = transliterate(name)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (slug.length > 60) slug = slug.slice(0, 60).replace(/-+$/g, "");
-  const skuSuffix = sku.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  return `${slug}-${skuSuffix}`;
-}
+import { buildDiff } from "./_import1c-lib.js";
 
 const BATCH_SIZE = 50;
 
@@ -74,128 +28,28 @@ export async function onRequestPost(context) {
   } catch {
     return json({ ok: false, error: "Файл не є коректним JSON" }, 400);
   }
-  if (!Array.isArray(data)) {
-    return json({ ok: false, error: "Очікується масив товарів у корені JSON" }, 400);
-  }
 
-  const { results: categories } = await env.koshyk_db.prepare("SELECT id, slug FROM categories").all();
-  const categoryIdBySlug = {};
-  categories.forEach((c) => { categoryIdBySlug[c.slug] = c.id; });
-
-  // Стан ДО обнулення — потрібен, щоб порівняти "було/стало" по кожному sku
-  const { results: existingRows } = await env.koshyk_db.prepare("SELECT id, sku, name, in_stock FROM products").all();
-  const existingBySku = {};
-  existingRows.forEach((r) => { existingBySku[r.sku] = r; });
-  const fileSkus = new Set(data.map((item) => item.sku).filter(Boolean));
+  const diff = await buildDiff(data, env.koshyk_db);
+  if (!diff.ok) return json(diff, 400);
 
   // Крок 1: усі товари тимчасово "немає в наявності"
   await env.koshyk_db.prepare("UPDATE products SET in_stock = 0").run();
 
-  const statements = [];
-  let updated = 0;
-  let added = 0;
-  let skippedInvalid = 0;
-  const skippedSamples = [];
-  const unmatchedCategoriesSet = new Set();
-  const backInStock = [];
-  const wentUnavailableInFile = []; // товар Є у файлі, але 1С явно позначила inStock:false
-  const keptInStockSkus = new Set();
-
-  for (const item of data) {
-    const sku = item.sku;
-    const name = item.n;
-    const price = item.p;
-    const rawCategory = item.c;
-    const categorySlug = normalizeCategory(rawCategory);
-    const brand = item.b || null;
-    const updatedAt = item.updated_at || null;
-    // ВАЖЛИВО: товар може бути присутній у файлі, але позначений
-    // 1С як тимчасово відсутній (inStock: false) — раніше це поле
-    // повністю ігнорувалось, і такий товар однаково ставав in_stock=1.
-    const inStockValue = item.inStock === false ? 0 : 1;
-
-    if (!sku || !name || price === undefined || price === null || !categorySlug) {
-      skippedInvalid++;
-      if (rawCategory && !categorySlug) unmatchedCategoriesSet.add(rawCategory);
-      if (skippedSamples.length < 15) {
-        skippedSamples.push({ sku: sku || "(без sku)", name: name || "(без назви)", category: rawCategory || "(без категорії)" });
-      }
-      continue;
-    }
-    const categoryId = categoryIdBySlug[categorySlug];
-    if (!categoryId) {
-      skippedInvalid++;
-      continue;
-    }
-
-    const existing = existingBySku[sku];
-    if (existing) {
-      if (inStockValue === 1) keptInStockSkus.add(sku);
-      if (existing.in_stock === 0 && inStockValue === 1) {
-        backInStock.push({ sku, name });
-      }
-      if (inStockValue === 0 && item.inStock === false) {
-        wentUnavailableInFile.push({ sku, name, alreadyInactive: existing.in_stock === 0 });
-      }
-      statements.push(
-        env.koshyk_db
-          .prepare(
-            `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, in_stock = ?,
-             source_updated_at = ?, updated_at = datetime('now') WHERE id = ?`
-          )
-          .bind(name, name.toLowerCase(), price, brand, inStockValue, updatedAt, existing.id)
-      );
-      updated++;
-    } else {
-      const skuSourceMatch = sku.match(/^([А-ЯA-Z]+)-/);
-      const skuSource = skuSourceMatch ? skuSourceMatch[1] : null;
-      const slug = makeSlug(name, sku);
-      statements.push(
-        env.koshyk_db
-          .prepare(
-            `INSERT INTO products (sku, sku_source, sku_lower, name, name_lower, slug, price, category_id, brand,
-             in_stock, has_real_photo, source_updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-          )
-          .bind(sku, skuSource, sku.toLowerCase(), name, name.toLowerCase(), slug, price, categoryId, brand, inStockValue, updatedAt)
-      );
-      added++;
-      if (inStockValue === 0 && item.inStock === false) {
-        wentUnavailableInFile.push({ sku, name, alreadyInactive: false });
-      }
-    }
-  }
-
-  for (let i = 0; i < statements.length; i += BATCH_SIZE) {
-    await env.koshyk_db.batch(statements.slice(i, i + BATCH_SIZE));
+  // Крок 2: statements із buildDiff піднімають назад товари з файлу
+  const stmts = diff.statements.map((s) => env.koshyk_db.prepare(s.sql).bind(...s.args));
+  for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
+    await env.koshyk_db.batch(stmts.slice(i, i + BATCH_SIZE));
   }
 
   const outOfStockRow = await env.koshyk_db
     .prepare("SELECT COUNT(*) as cnt FROM products WHERE in_stock = 0")
     .first();
 
-  // Товари, які до імпорту були в наявності, але у файлі відсутні
-  // (не потрапили ні в updated з in_stock=1, ні в added) — деактивовані кроком 1
-  const disappeared = existingRows
-    .filter((r) => !fileSkus.has(r.sku))
-    .map((r) => ({ sku: r.sku, name: r.name, alreadyInactive: r.in_stock === 0 }));
-  const disappearedNewCount = disappeared.filter((r) => !r.alreadyInactive).length;
-  const wentUnavailableNewCount = wentUnavailableInFile.filter((r) => !r.alreadyInactive).length;
-
   return json({
     ok: true,
-    total: data.length,
-    updated,
-    added,
-    skippedInvalid,
-    skippedSamples,
-    unmatchedCategories: Array.from(unmatchedCategoriesSet),
-    markedOutOfStock: outOfStockRow ? outOfStockRow.cnt : 0,
-    backInStock,
-    disappeared,
-    disappearedNewCount,
-    wentUnavailableInFile,
-    wentUnavailableNewCount,
+    mode: "commit",
+    ...diff.report,
+    markedOutOfStock: outOfStockRow ? outOfStockRow.cnt : 0, // факт замінює оцінку з diff.report
   });
 }
 
