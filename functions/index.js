@@ -236,6 +236,7 @@ ${catCardsHtml}
 
 <script src="/cart.js"></script>
 <script src="/theme.js"></script>
+<script src="/search-autocomplete.js"></script>
 
 </body>
 </html>`;
