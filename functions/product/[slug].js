@@ -83,7 +83,7 @@ export async function onRequestGet(context) {
 
 function renderNotFound() {
   return `<!DOCTYPE html>
-<html lang="uk"><head><meta charset="UTF-8"><title>Товар не знайдено — Ощадний Кошик</title></head>
+<html lang="uk"><head><meta charset="UTF-8"><title>Товар не знайдено — Ощадний Кошик</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E"></head>
 <body style="font-family:sans-serif;padding:60px;text-align:center;">
   <h1>Товар не знайдено</h1>
   <p><a href="/">← На головну</a></p>
@@ -152,6 +152,7 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(p.name)} — Ощадний Кошик</title>
 <meta name="description" content="${escapeHtml(p.name)} — ${p.price} ₴. Купити в Ощадному Кошику.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
