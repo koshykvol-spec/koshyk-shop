@@ -17,24 +17,30 @@
     "  background: var(--card); border: 2px solid var(--line); border-radius: 14px;",
     "  box-shadow: 0 18px 40px -12px rgba(0,0,0,0.45); overflow: hidden; z-index: 60;",
     "  display: none; max-height: 420px; overflow-y: auto;",
+    "  min-width: 320px;",
     "}",
     ".sa-dropdown.open { display: block; }",
     ".sa-item {",
-    "  display: flex; align-items: center; gap: 12px; padding: 10px 14px;",
-    "  cursor: pointer; border-bottom: 1px solid var(--line);",
+    "  display: grid; grid-template-columns: 40px 1fr auto; align-items: center;",
+    "  column-gap: 12px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--line);",
     "}",
     ".sa-item:last-child { border-bottom: none; }",
     ".sa-item:hover, .sa-item.active { background: var(--bg); }",
     ".sa-thumb {",
-    "  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;",
+    "  width: 40px; height: 40px; border-radius: 10px;",
     "  background: var(--bg); display: flex; align-items: center; justify-content: center;",
     "  font-size: 1.2rem; overflow: hidden; border: 1px solid var(--line);",
     "}",
     ".sa-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }",
-    ".sa-info { flex: 1; min-width: 0; }",
-    ".sa-name { font-size: 0.88rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
-    ".sa-meta { font-size: 0.76rem; color: var(--ink-soft); font-weight: 600; }",
-    ".sa-price { font-weight: 800; color: var(--coral, #FF3D71); font-size: 0.88rem; flex-shrink: 0; }",
+    ".sa-info { min-width: 0; }",
+    ".sa-name {",
+    "  font-size: 0.86rem; font-weight: 700; color: var(--ink); line-height: 1.28;",
+    "  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;",
+    "  overflow: hidden; word-break: break-word;",
+    "}",
+    ".sa-meta { font-size: 0.75rem; color: var(--ink-soft); font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }",
+    ".sa-oos { display: inline-block; margin-top: 3px; font-size: 0.68rem; font-weight: 700; color: var(--coral, #FF3D71); background: rgba(255,61,113,0.14); padding: 1px 7px; border-radius: 100px; }",
+    ".sa-price { font-weight: 800; color: var(--coral, #FF3D71); font-size: 0.86rem; white-space: nowrap; text-align: right; align-self: start; }",
     ".sa-more {",
     "  display: block; text-align: center; padding: 11px; font-size: 0.84rem;",
     "  font-weight: 700; color: var(--ink-soft); background: var(--bg); cursor: pointer;",
@@ -95,12 +101,14 @@
           ? '<img src="' + p.imageUrl + '" alt="" loading="lazy">'
           : "\ud83d\uded2";
         var priceHtml = p.price != null ? Number(p.price).toFixed(2) + " \u20b4" : "";
+        var oosHtml = p.inStock === false ? '<div class="sa-oos">Немає в наявності</div>' : "";
         return (
           '<div class="sa-item" data-slug="' + escapeHtml(p.slug) + '">' +
             '<div class="sa-thumb">' + thumb + "</div>" +
             '<div class="sa-info">' +
               '<div class="sa-name">' + escapeHtml(p.name) + "</div>" +
-              '<div class="sa-meta">' + escapeHtml(p.categoryName || "") + (p.inStock === false ? " \u00b7 немає в наявності" : "") + "</div>" +
+              '<div class="sa-meta">' + escapeHtml(p.categoryName || "") + "</div>" +
+              oosHtml +
             "</div>" +
             '<div class="sa-price">' + priceHtml + "</div>" +
           "</div>"
