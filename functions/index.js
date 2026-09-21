@@ -104,6 +104,47 @@ function renderPage({ categories, totals, site }) {
     contactLines.push(`<span class="contact-line"><b>Адреса самовивозу:</b> ${escapeHtml(site.store_address)}</span>`);
   }
 
+  const siteUrl = "https://koshyk.pp.ua/";
+
+  // Structured data (Schema.org) для Google: Store (контакти/адреса),
+  // WebSite (search box у видачі), ItemList (категорії в результатах).
+  // Дані ті самі, що вже рендеряться в HTML — просто в машинному вигляді.
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Store",
+      name: "Ощадний Кошик",
+      url: siteUrl,
+      description: aboutText,
+      ...(site.store_phone ? { telephone: site.store_phone } : {}),
+      ...(site.store_address ? { address: { "@type": "PostalAddress", streetAddress: site.store_address, addressCountry: "UA" } } : {}),
+      priceRange: totals.min_price != null && totals.max_price != null
+        ? `${price(totals.min_price)}–${price(totals.max_price)} UAH`
+        : undefined,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Ощадний Кошик",
+      url: siteUrl,
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${siteUrl}search?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: categories.map((c, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: c.name_uk,
+        url: `${siteUrl}catalog/${c.slug}`,
+      })),
+    },
+  ];
+
   return `<!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -112,8 +153,18 @@ function renderPage({ categories, totals, site }) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ощадний Кошик — все для дому за копійки</title>
 <meta name="description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
+<link rel="canonical" href="${siteUrl}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ощадний Кошик">
+<meta property="og:title" content="Ощадний Кошик — все для дому за копійки">
+<meta property="og:description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
+<meta property="og:url" content="${siteUrl}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ощадний Кошик — все для дому за копійки">
+<meta name="twitter:description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
 <style>${css()}</style>
+${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</script>`).join("\n")}
 </head>
 <body>
 
@@ -197,6 +248,12 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// JSON.stringify всередині <script>, з екрануванням "</" — щоб текст
+// з БД (наприклад about_text) не міг передчасно закрити тег <script>.
+function safeJsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, "\\u003c");
 }
 
 function css() {
