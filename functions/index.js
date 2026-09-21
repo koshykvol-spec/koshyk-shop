@@ -77,9 +77,17 @@ function renderPage({ categories, totals, site }) {
   const price = (n) => (n == null ? "0.00" : Number(n).toFixed(2));
 
   const totalInStock = totals.total_in_stock || 0;
-  const categoryCount = categories.length;
 
-  const catCardsHtml = categories
+  // Категорії з дуже малим асортиментом (наприклад, щойно заведена
+  // категорія на 2-3 товари) не показуємо окремою карткою на головній —
+  // виглядає непереконливо поруч із категоріями на сотні позицій.
+  // Товари лишаються доступними через каталог і пошук, просто без
+  // картки в топ-блоці. Поріг можна підняти/опустити тут в одному місці.
+  const MIN_CATEGORY_DISPLAY_COUNT = 10;
+  const visibleCategories = categories.filter((c) => c.in_stock_count >= MIN_CATEGORY_DISPLAY_COUNT);
+  const categoryCount = visibleCategories.length;
+
+  const catCardsHtml = visibleCategories
     .map((c) => {
       const meta = CATEGORY_META[c.slug] || DEFAULT_META;
       return `
@@ -136,7 +144,7 @@ function renderPage({ categories, totals, site }) {
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      itemListElement: categories.map((c, i) => ({
+      itemListElement: visibleCategories.map((c, i) => ({
         "@type": "ListItem",
         position: i + 1,
         name: c.name_uk,
