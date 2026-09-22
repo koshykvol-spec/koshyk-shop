@@ -6,6 +6,12 @@
 // бо друге число includes товари не в наявності). Тепер обидва місця
 // повинні брати дані з БД: тут — тільки in_stock=1, узгоджено з
 // написом "X товарів в наявності" на головній.
+//
+// Головна сторінка (functions/index.js) більше НЕ викликає цей
+// ендпоінт — вона читає ті самі дані напряму з D1 при серверному
+// рендері. Ендпоінт лишається як самостійний публічний API (раптом
+// знадобиться десь ще — інша сторінка, зовнішній клієнт тощо).
+// Edge-кеш на 60с — дані каталогу не змінюються щосекунди.
 
 export async function onRequestGet(context) {
   const { env } = context;
@@ -47,6 +53,11 @@ export async function onRequestGet(context) {
       minPrice: totalsRow ? totalsRow.min_price : null,
       maxPrice: totalsRow ? totalsRow.max_price : null,
     }),
-    { headers: { "Content-Type": "application/json; charset=utf-8" } }
+    {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "public, max-age=0, s-maxage=60",
+      },
+    }
   );
 }

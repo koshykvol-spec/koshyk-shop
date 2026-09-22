@@ -237,7 +237,7 @@ ${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</sc
 <section class="intro">
   <div class="wrap">
     <h1>Все для дому, дітей і побуту — в одному кошику</h1>
-    <p><b id="heroCount">${fmt(totalInStock)} товарів</b> в наявності просто зараз · ${categoryCount} категорій · без прихованих націнок</p>
+    <p><b id="heroCount">${fmt(totalInStock)} товарів</b> в наявності просто зараз · ${categoryCount} категорій · ціни від <b>${price(totals.min_price)} \u20b4</b> · без прихованих націнок</p>
   </div>
 </section>
 

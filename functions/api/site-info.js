@@ -4,6 +4,11 @@
 // telegram_bot_token/telegram_chat_id сюди НІКОЛИ не потрапляють —
 // явний allowlist, а не "всі ключі мінус секретні", щоб новий secret-
 // ключ, доданий пізніше в settings.js, не витік сюди за замовчуванням.
+//
+// Головна сторінка (functions/index.js) більше НЕ викликає цей
+// ендпоінт — вона читає ті самі налаштування напряму з D1 при
+// серверному рендері. Ендпоінт лишається як самостійний публічний
+// API. Edge-кеш на 60с — налаштування сайту міняються нечасто.
 
 const PUBLIC_KEYS = ["store_phone", "store_address", "about_text", "contacts_text"];
 
@@ -27,6 +32,11 @@ export async function onRequestGet(context) {
       aboutText: values.about_text || null,
       contactsText: values.contacts_text || null,
     }),
-    { headers: { "Content-Type": "application/json; charset=utf-8" } }
+    {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "public, max-age=0, s-maxage=60",
+      },
+    }
   );
 }
