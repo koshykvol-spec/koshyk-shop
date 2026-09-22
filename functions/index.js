@@ -31,7 +31,9 @@ export async function onRequestGet(context) {
   const { env } = context;
   const db = env.koshyk_db;
 
-  const [{ results: categories }, totalsRow, siteRows] = await Promise.all([
+  const NEW_ARRIVALS_LIMIT = 8;
+
+  const [{ results: categories }, totalsRow, siteRows, { results: newArrivals }] = await Promise.all([
     db
       .prepare(
         `SELECT c.slug, c.name_uk,
@@ -57,12 +59,29 @@ export async function onRequestGet(context) {
       )
       .bind(...PUBLIC_SITE_KEYS)
       .all(),
+    // "Новинки" на головній: нещодавно додані товари в наявності.
+    // Немає даних про реальні продажі під рукою (потрібен був би join з
+    // order_items) — простий і чесний критерій замість вигаданої
+    // "популярності". Серед свіжих пріоритет товарам з реальним фото,
+    // щоб блок одразу виглядав презентабельно, а не плейсхолдерами.
+    db
+      .prepare(
+        `SELECT p.name, p.slug, p.price, p.has_real_photo, p.image_url,
+                c.slug as category_slug, c.name_uk as category_name
+         FROM products p
+         JOIN categories c ON c.id = p.category_id
+         WHERE p.in_stock = 1
+         ORDER BY p.has_real_photo DESC, p.id DESC
+         LIMIT ?`
+      )
+      .bind(NEW_ARRIVALS_LIMIT)
+      .all(),
   ]);
 
   const siteValues = {};
   (siteRows.results || []).forEach((r) => { siteValues[r.key] = r.value; });
 
-  return new Response(renderPage({ categories, totals: totalsRow || {}, site: siteValues }), {
+  return new Response(renderPage({ categories, totals: totalsRow || {}, site: siteValues, newArrivals }), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       // Короткий edge-кеш: дані каталогу не змінюються щосекунди,
@@ -72,7 +91,7 @@ export async function onRequestGet(context) {
   });
 }
 
-function renderPage({ categories, totals, site }) {
+function renderPage({ categories, totals, site, newArrivals }) {
   const fmt = (n) => Number(n || 0).toLocaleString("uk-UA");
   const price = (n) => (n == null ? "0.00" : Number(n).toFixed(2));
 
@@ -103,6 +122,22 @@ function renderPage({ categories, totals, site }) {
     .join("\n");
 
   const aboutText = site.about_text || DEFAULT_ABOUT;
+
+  const newArrivalsHtml = (newArrivals || [])
+    .map((p) => {
+      const meta = CATEGORY_META[p.category_slug] || DEFAULT_META;
+      const thumb = (p.has_real_photo && p.image_url)
+        ? `<img src="${escapeHtml(p.image_url)}" alt="" loading="lazy">`
+        : meta.icon;
+      return `
+      <a class="new-card" href="/product/${escapeHtml(p.slug)}">
+        <div class="new-thumb">${thumb}</div>
+        <div class="new-name">${escapeHtml(p.name)}</div>
+        <div class="new-meta">${escapeHtml(p.category_name)}</div>
+        <div class="new-price">${price(p.price)} \u20b4</div>
+      </a>`;
+    })
+    .join("\n");
 
   const contactLines = [];
   if (site.store_phone) {
@@ -213,6 +248,15 @@ ${catCardsHtml}
     </div>
   </div>
 </section>
+
+${newArrivals && newArrivals.length ? `<section class="new-arrivals" id="new-arrivals">
+  <div class="wrap">
+    <h2>\ud83c\udd95 Новинки каталогу</h2>
+    <div class="new-grid">
+${newArrivalsHtml}
+    </div>
+  </div>
+</section>` : ""}
 
 <div class="strip">
   <div class="wrap">
@@ -564,6 +608,28 @@ function css() {
   .cat-card[data-slug="vzuttya"]:hover { border-color: var(--pink); box-shadow: 0 0 24px -4px var(--pink); }
   .cat-card[data-slug="vzuttya"] { grid-column: span 1; }
 
+  /* ---------- NEW ARRIVALS ---------- */
+  .new-arrivals { padding: 0 0 50px; }
+  .new-arrivals h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; }
+  .new-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .new-card {
+    background: var(--card); border: 2px solid var(--line); border-radius: var(--radius);
+    padding: 14px; display: flex; flex-direction: column; gap: 8px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .new-card:hover { transform: translateY(-4px); border-color: var(--teal); box-shadow: 0 0 24px -6px var(--teal); }
+  .new-thumb {
+    aspect-ratio: 1; border-radius: 14px; background: var(--bg); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 2.2rem; overflow: hidden; position: relative;
+  }
+  .new-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .new-name {
+    font-size: 0.88rem; font-weight: 700; color: var(--ink); line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .new-meta { font-size: 0.76rem; color: var(--ink-soft); font-weight: 600; }
+  .new-price { font-family: 'Baloo 2', sans-serif; font-weight: 800; color: var(--coral-deep); font-size: 1.02rem; margin-top: auto; }
+
   /* ---------- STRIP ---------- */
   .strip { background: linear-gradient(90deg, #1a0b2e, #2e0b3a); border-top: 1px solid var(--purple); border-bottom: 1px solid var(--purple); padding: 14px 0; font-size: 0.86rem; font-weight: 700; color: #fff; }
   .strip .wrap { display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; }
@@ -583,6 +649,7 @@ function css() {
     nav a:not(.cart-link) { display: none; }
     .header-search { margin: 0 8px; }
     .cat-grid { grid-template-columns: repeat(2, 1fr); }
+    .new-grid { grid-template-columns: repeat(2, 1fr); }
     .footer-content { grid-template-columns: 1fr; }
     .strip .wrap { gap: 14px; }
   }
