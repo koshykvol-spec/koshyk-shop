@@ -48,6 +48,28 @@ function renderNotFound() {
 }
 
 function renderPage(slug, nameUk, icon, isClothing) {
+  const SITE_URL = "https://koshyk.pp.ua";
+  const categoryUrl = `${SITE_URL}/catalog/${slug}`;
+  const description = `${nameUk} за ощадними цінами в інтернет-магазині Ощадний Кошик.`;
+
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: nameUk,
+      url: categoryUrl,
+      description: description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Головна", item: `${SITE_URL}/` },
+        { "@type": "ListItem", position: 2, name: nameUk, item: categoryUrl },
+      ],
+    },
+  ];
+
   return `<!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -55,8 +77,21 @@ function renderPage(slug, nameUk, icon, isClothing) {
 <script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${nameUk} — Ощадний Кошик</title>
-<meta name="description" content="${nameUk} за ощадними цінами в інтернет-магазині Ощадний Кошик.">
+<meta name="description" content="${description}">
+<link rel="canonical" href="${categoryUrl}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ощадний Кошик">
+<meta property="og:title" content="${nameUk} — Ощадний Кошик">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="${categoryUrl}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${nameUk} — Ощадний Кошик">
+<meta name="twitter:description" content="${description}">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#1E202E">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
+${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</script>`).join("\n")}
 <style>
 /* Локальні шрифти замість Google Fonts CDN — прибирає зовнішній запит,
    пришвидшує перший рендер (немає блокуючого stylesheet-запиту),
@@ -337,6 +372,12 @@ ${clientJs(icon)}
 
 </body>
 </html>`;
+}
+
+// JSON.stringify всередині <script>, з екрануванням "</" — щоб текст
+// (напр. назва категорії) не міг передчасно закрити тег <script>.
+function safeJsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, "\\u003c");
 }
 
 function sharedCss() {

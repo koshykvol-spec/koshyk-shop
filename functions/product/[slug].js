@@ -93,6 +93,41 @@ function renderNotFound() {
 function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewCount, settings) {
   const hasPhotos = images && images.length > 0;
   const mainImageUrl = hasPhotos ? `/img/${images[0].r2_key}` : null;
+  const SITE_URL = "https://koshyk.pp.ua";
+  const productUrl = `${SITE_URL}/product/${p.slug}`;
+  const absImageUrl = mainImageUrl ? `${SITE_URL}${mainImageUrl}` : null;
+  const shortDescription = p.description
+    ? p.description.slice(0, 160)
+    : `${p.name} — ${Number(p.price).toFixed(2)} ₴. Купити в Ощадному Кошику.`;
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: p.name,
+    sku: p.sku,
+    ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
+    ...(absImageUrl ? { image: [absImageUrl] } : {}),
+    ...(p.description ? { description: p.description } : {}),
+    url: productUrl,
+    offers: {
+      "@type": "Offer",
+      url: productUrl,
+      priceCurrency: "UAH",
+      price: Number(p.price).toFixed(2),
+      availability: p.in_stock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+    ...(reviewCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: avgRating,
+            reviewCount: reviewCount,
+          },
+        }
+      : {}),
+  };
   const thumbsHtml = hasPhotos && images.length > 1
     ? `<div class="photo-thumbs">${images
         .map(
@@ -151,8 +186,25 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 <script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(p.name)} — Ощадний Кошик</title>
-<meta name="description" content="${escapeHtml(p.name)} — ${p.price} ₴. Купити в Ощадному Кошику.">
+<meta name="description" content="${escapeHtml(shortDescription)}">
+<link rel="canonical" href="${productUrl}">
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="Ощадний Кошик">
+<meta property="og:title" content="${escapeHtml(p.name)}">
+<meta property="og:description" content="${escapeHtml(shortDescription)}">
+<meta property="og:url" content="${productUrl}">
+${absImageUrl ? `<meta property="og:image" content="${absImageUrl}">` : ""}
+<meta property="product:price:amount" content="${Number(p.price).toFixed(2)}">
+<meta property="product:price:currency" content="UAH">
+<meta name="twitter:card" content="${absImageUrl ? "summary_large_image" : "summary"}">
+<meta name="twitter:title" content="${escapeHtml(p.name)}">
+<meta name="twitter:description" content="${escapeHtml(shortDescription)}">
+${absImageUrl ? `<meta name="twitter:image" content="${absImageUrl}">` : ""}
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#1E202E">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">${safeJsonLd(productJsonLd)}</script>
 <style>
 /* Локальні шрифти замість Google Fonts CDN — прибирає зовнішній запит,
    пришвидшує перший рендер (немає блокуючого stylesheet-запиту),
@@ -690,6 +742,12 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// JSON.stringify всередині <script>, з екрануванням "</" — щоб опис
+// товару з БД не міг передчасно закрити тег <script>.
+function safeJsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, "\\u003c");
 }
 
 function css() {

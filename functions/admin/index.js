@@ -16,7 +16,152 @@ function renderPage() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Адмінка — Ощадний Кошик</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Локальні шрифти замість Google Fonts CDN для адмінки */
+
+/* ---- Fraunces (заголовки; латиниця — кирилиця в шрифті відсутня) ---- */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/admin/fraunces-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/admin/fraunces-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* ---- Manrope (основний текст) ---- */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-400-normal.woff2") format("woff2");
+  unicode-range: U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-500-normal.woff2") format("woff2");
+  unicode-range: U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-ext-500-normal.woff2") format("woff2");
+  unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-600-normal.woff2") format("woff2");
+  unicode-range: U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-ext-600-normal.woff2") format("woff2");
+  unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-700-normal.woff2") format("woff2");
+  unicode-range: U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/admin/manrope-cyrillic-ext-700-normal.woff2") format("woff2");
+  unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+
+/* ---- IBM Plex Mono (числа в чіпах) ---- */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/admin/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/admin/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/admin/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+</style>
 <style>${css()}</style>
 </head>
 <body>

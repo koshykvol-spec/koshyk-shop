@@ -32,6 +32,7 @@ export async function onRequestGet(context) {
   const db = env.koshyk_db;
 
   const NEW_ARRIVALS_LIMIT = 8;
+  const NEW_ARRIVALS_MAX_PER_CATEGORY = 2;
 
   const [{ results: categories }, totalsRow, siteRows, { results: newArrivals }] = await Promise.all([
     db
@@ -64,17 +65,29 @@ export async function onRequestGet(context) {
     // order_items) — простий і чесний критерій замість вигаданої
     // "популярності". Серед свіжих пріоритет товарам з реальним фото,
     // щоб блок одразу виглядав презентабельно, а не плейсхолдерами.
+    // MAX_PER_CATEGORY: без цього обмеження блок міг випадково
+    // заповнитись товарами лише з однієї категорії (якщо саме туди
+    // недавно залили партію фото) — обмежуємо, щоб "Новинки" відображали
+    // різноманітність каталогу, а не один випадковий імпорт.
     db
       .prepare(
-        `SELECT p.name, p.slug, p.price, p.has_real_photo, p.image_url,
-                c.slug as category_slug, c.name_uk as category_name
-         FROM products p
-         JOIN categories c ON c.id = p.category_id
-         WHERE p.in_stock = 1
-         ORDER BY p.has_real_photo DESC, p.id DESC
+        `SELECT name, slug, price, has_real_photo, image_url, category_slug, category_name
+         FROM (
+           SELECT p.id, p.name, p.slug, p.price, p.has_real_photo, p.image_url,
+                  c.slug as category_slug, c.name_uk as category_name,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY p.category_id
+                    ORDER BY p.has_real_photo DESC, p.id DESC
+                  ) as rn
+           FROM products p
+           JOIN categories c ON c.id = p.category_id
+           WHERE p.in_stock = 1
+         )
+         WHERE rn <= ?
+         ORDER BY has_real_photo DESC, id DESC
          LIMIT ?`
       )
-      .bind(NEW_ARRIVALS_LIMIT)
+      .bind(NEW_ARRIVALS_MAX_PER_CATEGORY, NEW_ARRIVALS_LIMIT)
       .all(),
   ]);
 
@@ -205,6 +218,9 @@ function renderPage({ categories, totals, site, newArrivals }) {
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Ощадний Кошик — все для дому за копійки">
 <meta name="twitter:description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#1E202E">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
 <style>${css()}</style>
 ${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</script>`).join("\n")}
