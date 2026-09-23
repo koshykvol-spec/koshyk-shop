@@ -2,7 +2,11 @@
 // На відміну від /api/search (повний пошук зі сторінками/фільтрами),
 // тут завжди максимум 6 результатів і мінімум даних — для dropdown
 // під час набору тексту. Той самий принцип регістронезалежності
-// (name_lower/sku_lower), що й у /api/search.
+// (name_lower/sku_lower), що й у /api/search, плюс розширення
+// синонімами з search_synonyms (див. _lib/synonyms.js) — щоб "гумка"
+// теж знаходила товари, названі "резинка для волосся" тощо.
+
+import { expandWithSynonyms, buildNameSkuClause } from "../_lib/synonyms.js";
 
 const SUGGEST_LIMIT = 6;
 const MIN_QUERY_LENGTH = 2;
@@ -19,8 +23,9 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const containsParam = `%${qLower}%`;
     const prefixParam = `${qLower}%`;
+    const synonymTerms = await expandWithSynonyms(env.koshyk_db, qLower);
+    const { clause: nameSkuClause, bindings: nameSkuBindings } = buildNameSkuClause(qLower, synonymTerms);
 
     const sql = `
       SELECT p.name, p.slug, p.price, p.in_stock, p.has_real_photo, p.image_url,
@@ -28,21 +33,18 @@ export async function onRequestGet(context) {
              CASE WHEN p.name_lower LIKE ? THEN 0 ELSE 1 END as rank_prefix
       FROM products p
       JOIN categories c ON c.id = p.category_id
-      WHERE (p.name_lower LIKE ? OR p.sku_lower LIKE ?)
+      WHERE ${nameSkuClause}
       ORDER BY rank_prefix ASC, p.in_stock DESC, p.name ASC
       LIMIT ?
     `;
     const { results: products } = await env.koshyk_db
       .prepare(sql)
-      .bind(prefixParam, containsParam, containsParam, SUGGEST_LIMIT)
+      .bind(prefixParam, ...nameSkuBindings, SUGGEST_LIMIT)
       .all();
 
     const countRow = await env.koshyk_db
-      .prepare(
-        `SELECT COUNT(*) as total FROM products p
-         WHERE (p.name_lower LIKE ? OR p.sku_lower LIKE ?)`
-      )
-      .bind(containsParam, containsParam)
+      .prepare(`SELECT COUNT(*) as total FROM products p WHERE ${nameSkuClause}`)
+      .bind(...nameSkuBindings)
       .first();
 
     return json({

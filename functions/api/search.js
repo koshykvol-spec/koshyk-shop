@@ -7,6 +7,11 @@
 // заповнюються через JS toLowerCase() (див. міграцію 0002 і backfill_lower.js).
 // При кожному додаванні/редагуванні товару обов'язково записуй name_lower
 // та sku_lower разом з name/sku.
+//
+// Розширення синонімами (search_synonyms, напр. "гумка" -> "резинка
+// для волосся") — див. _lib/synonyms.js. Той самий принцип у /api/suggest.
+
+import { expandWithSynonyms, buildNameSkuClause } from "../_lib/synonyms.js";
 
 const DEFAULT_PER_PAGE = 24;
 const ALLOWED_PER_PAGE = new Set([12, 24, 48, 96]);
@@ -29,8 +34,11 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const where = ["(p.name_lower LIKE ? OR p.sku_lower LIKE ?)"];
-    const bindings = [`%${qLower}%`, `%${qLower}%`];
+    const synonymTerms = await expandWithSynonyms(env.koshyk_db, qLower);
+    const { clause: nameSkuClause, bindings: nameSkuBindings } = buildNameSkuClause(qLower, synonymTerms);
+
+    const where = [nameSkuClause];
+    const bindings = [...nameSkuBindings];
 
     if (category) {
       where.push("c.slug = ?");
@@ -69,12 +77,12 @@ export async function onRequestGet(context) {
     const categoryCountSql = `
       SELECT c.slug, c.name_uk, COUNT(*) as cnt
       FROM products p JOIN categories c ON c.id = p.category_id
-      WHERE (p.name_lower LIKE ? OR p.sku_lower LIKE ?)
+      WHERE ${nameSkuClause}
       GROUP BY c.id ORDER BY cnt DESC
     `;
     const { results: categoryRows } = await env.koshyk_db
       .prepare(categoryCountSql)
-      .bind(`%${qLower}%`, `%${qLower}%`)
+      .bind(...nameSkuBindings)
       .all();
 
     return json({
