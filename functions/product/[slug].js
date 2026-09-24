@@ -47,11 +47,20 @@ export async function onRequestGet(context) {
     .all();
 
   // схожі товари з тієї ж категорії (для навігації, без окремого API)
+  // ORDER BY RANDOM() тут раніше змушував SQLite прочитати й
+  // відсортувати ВСІ товари категорії (до 686 рядків) на кожному
+  // показі кожної сторінки товару — дорого для D1 при 2000+ товарах.
+  // Просте "ORDER BY id DESC LIMIT 4" індекс idx_products_category
+  // покриває без TEMP B-TREE (SQLite вже зберігає записи індексу
+  // впорядкованими за rowid/id у межах category_id) — LIMIT 4
+  // зупиняється одразу, без читання всієї категорії. Свідомо без
+  // "in_stock DESC" — додавання другого критерію сортування знову
+  // змусило б SQLite сортувати всю вибірку в TEMP B-TREE.
   const { results: related } = await env.koshyk_db
     .prepare(
       `SELECT name, slug, price, has_real_photo, image_url FROM products
        WHERE category_id = (SELECT category_id FROM products WHERE slug = ?) AND slug != ?
-       ORDER BY RANDOM() LIMIT 4`
+       ORDER BY id DESC LIMIT 4`
     )
     .bind(slug, slug)
     .all();
