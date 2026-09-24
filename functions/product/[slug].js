@@ -49,7 +49,7 @@ export async function onRequestGet(context) {
   // схожі товари з тієї ж категорії (для навігації, без окремого API)
   const { results: related } = await env.koshyk_db
     .prepare(
-      `SELECT name, slug, price FROM products
+      `SELECT name, slug, price, has_real_photo, image_url FROM products
        WHERE category_id = (SELECT category_id FROM products WHERE slug = ?) AND slug != ?
        ORDER BY RANDOM() LIMIT 4`
     )
@@ -173,14 +173,17 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 
   const relatedHtml = related.length
     ? related
-        .map(
-          (r) => `
+        .map((r) => {
+          const rThumb = r.has_real_photo && r.image_url
+            ? `<img src="${escapeHtml(r.image_url)}" alt="" loading="lazy">`
+            : icon;
+          return `
       <a class="related-card" href="/product/${escapeHtml(r.slug)}">
-        <div class="related-thumb">${icon}</div>
+        <div class="related-thumb">${rThumb}</div>
         <div class="related-name">${escapeHtml(r.name)}</div>
         <div class="related-price">${Number(r.price).toFixed(2)} ₴</div>
-      </a>`
-        )
+      </a>`;
+        })
         .join("")
     : "";
 
@@ -887,7 +890,8 @@ function css() {
   .related-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .related-card { background: var(--bg); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
   .related-card:hover { transform: translateY(-3px); border-color: var(--teal); box-shadow: 0 0 20px -6px var(--teal); }
-  .related-thumb { aspect-ratio: 1; background: var(--card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+  .related-thumb { aspect-ratio: 1; background: var(--card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; overflow: hidden; position: relative; }
+  .related-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .related-name { font-size: 0.86rem; font-weight: 700; line-height: 1.3; }
   .related-price { font-family: 'Baloo 2', sans-serif; font-weight: 800; color: var(--coral); font-size: 0.9rem; }
 
