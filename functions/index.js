@@ -215,7 +215,9 @@ function renderPage({ categories, totals, site, newArrivals }) {
 <meta property="og:title" content="Ощадний Кошик — все для дому за копійки">
 <meta property="og:description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
 <meta property="og:url" content="${siteUrl}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${siteUrl}og-share.png">
+<meta name="twitter:image" content="${siteUrl}og-share.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ощадний Кошик — все для дому за копійки">
 <meta name="twitter:description" content="Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами.">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">

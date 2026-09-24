@@ -1,8 +1,13 @@
 // Pages Function: GET /catalog/:slug
-// Віддає HTML-шаблон каталогу. Дані товарів підвантажуються клієнтським
-// JS з /api/catalog/:slug — сама функція тільки перевіряє існування
-// категорії (щоб миттєво віддати 404 для неіснуючих slug) і вставляє
-// назву категорії в <title>/<h1> без додаткового round-trip на клієнті.
+// Рендерить сторінку категорії разом із першою сторінкою товарів
+// (SSR) — раніше товари підвантажувались лише клієнтським JS після
+// показу порожнього "Завантаження…", тепер перший показ одразу містить
+// реальні товари/фасети/пагінацію (той самий принцип, що на головній).
+// Фільтрація/сортування/пагінація після першого показу як і раніше
+// йдуть через клієнтський fetch до /api/catalog/:slug — SQL-логіка
+// спільна для обох через _lib/catalog-query.js, щоб не розходилась.
+
+import { defaultCatalogFilters, queryCatalog } from "../_lib/catalog-query.js";
 
 const CATEGORY_ICONS = {
   kanctovary: "✏️",
@@ -19,7 +24,7 @@ export async function onRequestGet(context) {
   const slug = params.slug;
 
   const category = await env.koshyk_db
-    .prepare("SELECT slug, name_uk FROM categories WHERE slug = ?")
+    .prepare("SELECT id, slug, name_uk FROM categories WHERE slug = ?")
     .bind(slug)
     .first();
 
@@ -33,7 +38,9 @@ export async function onRequestGet(context) {
   const icon = CATEGORY_ICONS[category.slug] || "🛒";
   const isClothing = category.slug === "odyah" || category.slug === "vzuttya";
 
-  return new Response(renderPage(category.slug, category.name_uk, icon, isClothing), {
+  const initial = await queryCatalog(env.koshyk_db, category, defaultCatalogFilters(), slug);
+
+  return new Response(renderPage(category.slug, category.name_uk, icon, isClothing, initial), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -47,7 +54,7 @@ function renderNotFound() {
 </body></html>`;
 }
 
-function renderPage(slug, nameUk, icon, isClothing) {
+function renderPage(slug, nameUk, icon, isClothing, initial) {
   const SITE_URL = "https://koshyk.pp.ua";
   const categoryUrl = `${SITE_URL}/catalog/${slug}`;
   const description = `${nameUk} за ощадними цінами в інтернет-магазині Ощадний Кошик.`;
@@ -69,6 +76,20 @@ function renderPage(slug, nameUk, icon, isClothing) {
       ],
     },
   ];
+  if (initial.products.length) {
+    jsonLd.push({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: initial.products.map((p, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: `${SITE_URL}/product/${p.slug}`,
+      })),
+    });
+  }
+
+  const showGenderGroup = isClothing && initial.facets.genders && initial.facets.genders.length > 0;
+  const showBrandGroup = initial.facets.brands && initial.facets.brands.length > 0;
 
   return `<!DOCTYPE html>
 <html lang="uk">
@@ -84,7 +105,9 @@ function renderPage(slug, nameUk, icon, isClothing) {
 <meta property="og:title" content="${nameUk} — Ощадний Кошик">
 <meta property="og:description" content="${description}">
 <meta property="og:url" content="${categoryUrl}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${SITE_URL}/og-share.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${SITE_URL}/og-share.png">
 <meta name="twitter:title" content="${nameUk} — Ощадний Кошик">
 <meta name="twitter:description" content="${description}">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -293,7 +316,7 @@ ${sharedCss()}
   <div class="cat-header-icon">${icon}</div>
   <div>
     <h1>${nameUk}</h1>
-    <p class="cat-header-count" id="resultCount">Завантаження…</p>
+    <p class="cat-header-count" id="resultCount">${initial.total} товарів у категорії</p>
   </div>
 </div>
 
@@ -304,23 +327,23 @@ ${sharedCss()}
       <button class="clear-btn" id="clearFilters" type="button">Скинути</button>
     </div>
 
-    <div class="filter-group" id="genderGroup" hidden>
+    <div class="filter-group" id="genderGroup"${showGenderGroup ? "" : " hidden"}>
       <h3>Стать / вік</h3>
-      <div class="chips" id="genderChips"></div>
+      <div class="chips" id="genderChips">${genderChipsHtml(initial.facets.genders)}</div>
     </div>
 
     <div class="filter-group">
       <h3>Ціна, ₴</h3>
       <div class="price-range">
-        <input type="number" id="minPrice" placeholder="від" min="0">
+        <input type="number" id="minPrice" placeholder="від ${Number(initial.facets.priceMin || 0).toFixed(2)}" min="0">
         <span>—</span>
-        <input type="number" id="maxPrice" placeholder="до" min="0">
+        <input type="number" id="maxPrice" placeholder="до ${Number(initial.facets.priceMax || 0).toFixed(2)}" min="0">
       </div>
     </div>
 
-    <div class="filter-group" id="brandGroup" hidden>
+    <div class="filter-group" id="brandGroup"${showBrandGroup ? "" : " hidden"}>
       <h3>Бренд</h3>
-      <div class="brand-list" id="brandList"></div>
+      <div class="brand-list" id="brandList">${brandListHtml(initial.facets.brands)}</div>
     </div>
 
     <button class="apply-btn" id="applyFilters" type="button">Застосувати</button>
@@ -348,11 +371,9 @@ ${sharedCss()}
       </div>
     </div>
 
-    <div class="grid" id="productGrid">
-      <div class="loading">Завантаження товарів…</div>
-    </div>
+    <div class="grid" id="productGrid">${initial.products.length ? initial.products.map((p) => productCardHtml(p, icon)).join("\n") : '<div class="empty">Товарів за цими фільтрами не знайдено.</div>'}</div>
 
-    <div class="pagination" id="pagination"></div>
+    <div class="pagination" id="pagination">${paginationHtml(initial.page, initial.totalPages)}</div>
   </main>
 </div>
 
@@ -375,9 +396,61 @@ ${clientJs(icon)}
 }
 
 // JSON.stringify всередині <script>, з екрануванням "</" — щоб текст
-// (напр. назва категорії) не міг передчасно закрити тег <script>.
+// (напр. назва категорії чи товару) не міг передчасно закрити тег <script>.
 function safeJsonLd(obj) {
   return JSON.stringify(obj).replace(/</g, "\\u003c");
+}
+
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// --- Server-side будівники розмітки, що дзеркалять клієнтські
+// renderProducts/renderFacets/renderPagination у clientJs() —
+// для першого показу (SSR), щоб не було "миготіння" порожньої сторінки.
+
+function productCardHtml(p, icon) {
+  let meta = "";
+  if (p.attributes) {
+    const parts = [];
+    if (p.attributes.gender) parts.push(p.attributes.gender);
+    if (p.attributes.age_group) parts.push(p.attributes.age_group);
+    if (p.attributes.size) parts.push("розмір " + p.attributes.size);
+    meta = parts.join(" · ");
+  } else if (p.brand) {
+    meta = p.brand;
+  }
+  const thumb = p.hasRealPhoto && p.imageUrl
+    ? `<div class="product-thumb"><img src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"></div>`
+    : `<div class="product-thumb">${icon}</div>`;
+  const cardClass = "product-card" + (p.inStock === false ? " out-of-stock" : "");
+  const badge = p.inStock === false ? '<div class="out-of-stock-badge">Немає в наявності</div>' : "";
+  return `<a class="${cardClass}" href="/product/${encodeURIComponent(p.slug)}">${thumb}<div class="product-name">${escapeHtml(p.name)}</div>${meta ? `<div class="product-meta">${escapeHtml(meta)}</div>` : ""}<div class="product-price">${Number(p.price).toFixed(2)} ₴</div>${badge}</a>`;
+}
+
+function paginationHtml(page, totalPages) {
+  if (totalPages <= 1) return "";
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, start + 4);
+  let html = "";
+  for (let i = start; i <= end; i++) {
+    html += `<button class="page-btn${i === page ? " active" : ""}" data-page="${i}">${i}</button>`;
+  }
+  return html;
+}
+
+function genderChipsHtml(genders) {
+  if (!genders || !genders.length) return "";
+  return genders.map((g) => `<button class="chip" data-gender="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join("");
+}
+
+function brandListHtml(brands) {
+  if (!brands || !brands.length) return "";
+  return brands.map((b) => `<label><input type="checkbox" class="brand-checkbox" value="${escapeHtml(b)}"> ${escapeHtml(b)}</label>`).join("");
 }
 
 function sharedCss() {
@@ -502,8 +575,12 @@ function clientJs(icon) {
   var isClothing = body.dataset.clothing === "1";
   var icon = ${JSON.stringify(icon)};
 
+  // Перша сторінка вже відрендерена сервером (товари, фасети,
+  // пагінація) — тому на старті НЕ робимо fetch, а одразу навішуємо
+  // обробники на вже наявну розмітку. Наступні fetchData() (зміна
+  // фільтрів/сторінки/сортування) працюють як і раніше.
   var state = { brands: [], minPrice: null, maxPrice: null, gender: null, sort: "name", page: 1, inStockOnly: false, perPage: 24 };
-  var facetsLoaded = false;
+  var facetsLoaded = true;
 
   var grid = document.getElementById("productGrid");
   var resultCount = document.getElementById("resultCount");
@@ -583,6 +660,16 @@ function clientJs(icon) {
     }).join("");
   }
 
+  function bindPaginationButtons() {
+    Array.prototype.forEach.call(pagination.querySelectorAll(".page-btn"), function (btn) {
+      btn.addEventListener("click", function () {
+        state.page = parseInt(btn.dataset.page, 10);
+        fetchData();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
   function renderPagination(page, totalPages) {
     if (totalPages <= 1) { pagination.innerHTML = ""; return; }
     var html = "";
@@ -592,11 +679,32 @@ function clientJs(icon) {
       html += '<button class="page-btn' + (i === page ? ' active' : '') + '" data-page="' + i + '">' + i + '</button>';
     }
     pagination.innerHTML = html;
-    Array.prototype.forEach.call(pagination.querySelectorAll(".page-btn"), function (btn) {
-      btn.addEventListener("click", function () {
-        state.page = parseInt(btn.dataset.page, 10);
+    bindPaginationButtons();
+  }
+
+  function bindGenderChips() {
+    Array.prototype.forEach.call(genderChips.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var g = chip.dataset.gender;
+        var wasActive = chip.classList.contains("active");
+        Array.prototype.forEach.call(genderChips.querySelectorAll(".chip"), function (c) { c.classList.remove("active"); });
+        state.gender = wasActive ? null : g;
+        if (!wasActive) chip.classList.add("active");
+        state.page = 1;
         fetchData();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
+  function bindBrandCheckboxes() {
+    Array.prototype.forEach.call(brandList.querySelectorAll('input[type="checkbox"]'), function (cb) {
+      cb.addEventListener("change", function () {
+        var v = cb.value;
+        var idx = state.brands.indexOf(v);
+        if (cb.checked && idx === -1) state.brands.push(v);
+        if (!cb.checked && idx !== -1) state.brands.splice(idx, 1);
+        state.page = 1;
+        fetchData();
       });
     });
   }
@@ -607,17 +715,7 @@ function clientJs(icon) {
       genderChips.innerHTML = facets.genders.map(function (g) {
         return '<button class="chip" data-gender="' + escapeHtml(g) + '">' + escapeHtml(g) + '</button>';
       }).join("");
-      Array.prototype.forEach.call(genderChips.querySelectorAll(".chip"), function (chip) {
-        chip.addEventListener("click", function () {
-          var g = chip.dataset.gender;
-          var wasActive = chip.classList.contains("active");
-          Array.prototype.forEach.call(genderChips.querySelectorAll(".chip"), function (c) { c.classList.remove("active"); });
-          state.gender = wasActive ? null : g;
-          if (!wasActive) chip.classList.add("active");
-          state.page = 1;
-          fetchData();
-        });
-      });
+      bindGenderChips();
     }
 
     if (facets.brands && facets.brands.length) {
@@ -626,16 +724,7 @@ function clientJs(icon) {
         var checked = state.brands.indexOf(b) !== -1 ? "checked" : "";
         return '<label><input type="checkbox" class="brand-checkbox" value="' + escapeHtml(b) + '" ' + checked + '> ' + escapeHtml(b) + '</label>';
       }).join("");
-      Array.prototype.forEach.call(brandList.querySelectorAll('input[type="checkbox"]'), function (cb) {
-        cb.addEventListener("change", function () {
-          var v = cb.value;
-          var idx = state.brands.indexOf(v);
-          if (cb.checked && idx === -1) state.brands.push(v);
-          if (!cb.checked && idx !== -1) state.brands.splice(idx, 1);
-          state.page = 1;
-          fetchData();
-        });
-      });
+      bindBrandCheckboxes();
     }
 
     if (facets.priceMin != null) minPriceInput.placeholder = "від " + Number(facets.priceMin).toFixed(2);
@@ -689,7 +778,11 @@ function clientJs(icon) {
     document.getElementById("filters").classList.toggle("open");
   });
 
-  fetchData();
+  // Перша сторінка вже в розмітці від сервера — просто навішуємо
+  // обробники подій на вже наявні елементи, без повторного fetch.
+  bindGenderChips();
+  bindBrandCheckboxes();
+  bindPaginationButtons();
 })();
   `;
 }

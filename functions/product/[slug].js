@@ -96,6 +96,11 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
   const SITE_URL = "https://koshyk.pp.ua";
   const productUrl = `${SITE_URL}/product/${p.slug}`;
   const absImageUrl = mainImageUrl ? `${SITE_URL}${mainImageUrl}` : null;
+  // og:image завжди має значення — навіть без реального фото товару
+  // посилання в месенджерах матиме фірмову картку, а не порожній
+  // превʼю. У Product JSON-LD "image" лишаємо тільки для реального
+  // фото товару — заглушку туди додавати не варто (це не фото товару).
+  const ogImageUrl = absImageUrl || `${SITE_URL}/og-share.png`;
   const shortDescription = p.description
     ? p.description.slice(0, 160)
     : `${p.name} — ${Number(p.price).toFixed(2)} ₴. Купити в Ощадному Кошику.`;
@@ -193,13 +198,13 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
 <meta property="og:title" content="${escapeHtml(p.name)}">
 <meta property="og:description" content="${escapeHtml(shortDescription)}">
 <meta property="og:url" content="${productUrl}">
-${absImageUrl ? `<meta property="og:image" content="${absImageUrl}">` : ""}
+${`<meta property="og:image" content="${ogImageUrl}">`}
 <meta property="product:price:amount" content="${Number(p.price).toFixed(2)}">
 <meta property="product:price:currency" content="UAH">
-<meta name="twitter:card" content="${absImageUrl ? "summary_large_image" : "summary"}">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(p.name)}">
 <meta name="twitter:description" content="${escapeHtml(shortDescription)}">
-${absImageUrl ? `<meta name="twitter:image" content="${absImageUrl}">` : ""}
+<meta name="twitter:image" content="${ogImageUrl}">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#1E202E">
