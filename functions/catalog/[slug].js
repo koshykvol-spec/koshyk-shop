@@ -47,7 +47,7 @@ export async function onRequestGet(context) {
 
 function renderNotFound() {
   return `<!DOCTYPE html>
-<html lang="uk"><head><meta charset="UTF-8"><title>Категорію не знайдено — Ощадний Кошик</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E"></head>
+<html lang="uk"><head><meta charset="UTF-8"><title>Категорію не знайдено — Ощадний Кошик</title><link rel="icon" type="image/png" href="/icon-192.png"></head>
 <body style="font-family:sans-serif;padding:60px;text-align:center;">
   <h1>Категорію не знайдено</h1>
   <p><a href="/">← На головну</a></p>
@@ -113,7 +113,7 @@ function renderPage(slug, nameUk, icon, isClothing, initial) {
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#1E202E">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF3D71'/%3E%3Cstop offset='1' stop-color='%23B94FFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)' transform='rotate(-6 32 32)'/%3E%3Ctext x='32' y='44' font-family='Arial, sans-serif' font-weight='800' font-size='34' fill='white' text-anchor='middle'%3EК%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="/icon-192.png">
 ${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</script>`).join("\n")}
 <style>
 /* Локальні шрифти замість Google Fonts CDN — прибирає зовнішній запит,
