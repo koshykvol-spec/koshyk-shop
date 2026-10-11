@@ -27,7 +27,30 @@ const PUBLIC_SITE_KEYS = ["store_phone", "store_address", "about_text", "contact
 const DEFAULT_ABOUT =
   "Ощадний Кошик — інтернет-магазин канцтоварів, господарчих товарів, іграшок, одягу, хімії, біжутерії та взуття. Частина мережі магазинів, до якої входить також Агроном.";
 
+// Кеш головної сторінки через Cache API: без цього кожне відкриття "/"
+// виконує 3 важкі D1-запити (заголовок s-maxage сам по собі кеш не вмикає,
+// бо Pages Function виконується перед кешем).
+const HOME_CACHE_TTL = 600; // секунд
+
 export async function onRequestGet(context) {
+  const cache = caches.default;
+  // Єдиний ключ для "/" незалежно від ?utm=..., ?fbclid=... тощо
+  const cacheKey = new Request(new URL(context.request.url).origin + "/");
+
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const hit = new Response(cached.body, cached);
+    hit.headers.set("X-Cache", "HIT");
+    return hit;
+  }
+
+  const res = await renderHome(context);
+  if (res.ok) context.waitUntil(cache.put(cacheKey, res.clone()));
+  res.headers.set("X-Cache", "MISS");
+  return res;
+}
+
+async function renderHome(context) {
   const { env } = context;
   const db = env.koshyk_db;
 
@@ -99,7 +122,7 @@ export async function onRequestGet(context) {
       "Content-Type": "text/html; charset=utf-8",
       // Короткий edge-кеш: дані каталогу не змінюються щосекунди,
       // а D1-запит на кожен відкритий таб зайвий.
-      "Cache-Control": "public, max-age=0, s-maxage=60",
+      "Cache-Control": `public, max-age=0, s-maxage=${HOME_CACHE_TTL}`,
     },
   });
 }
