@@ -11,9 +11,31 @@
 // ендпоінт — вона читає ті самі дані напряму з D1 при серверному
 // рендері. Ендпоінт лишається як самостійний публічний API (раптом
 // знадобиться десь ще — інша сторінка, зовнішній клієнт тощо).
-// Edge-кеш на 60с — дані каталогу не змінюються щосекунди.
+// Кеш на 10 хв (Cache API + edge) — дані каталогу не змінюються щосекунди.
+
+// Кеш відповіді через Cache API: без нього кожен виклик виконує 2 запити
+// по всій таблиці products (≈2,5 тис. рядків кожен).
+const CATEGORIES_CACHE_TTL = 600; // секунд
 
 export async function onRequestGet(context) {
+  const cache = caches.default;
+  // Єдиний ключ незалежно від параметрів запиту (?v=..., ?utm=... тощо)
+  const cacheKey = new Request(new URL(context.request.url).origin + "/api/categories");
+
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const hit = new Response(cached.body, cached);
+    hit.headers.set("X-Cache", "HIT");
+    return hit;
+  }
+
+  const res = await getCategories(context);
+  if (res.ok) context.waitUntil(cache.put(cacheKey, res.clone()));
+  res.headers.set("X-Cache", "MISS");
+  return res;
+}
+
+async function getCategories(context) {
   const { env } = context;
 
   const { results: categories } = await env.koshyk_db
@@ -56,7 +78,7 @@ export async function onRequestGet(context) {
     {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "public, max-age=0, s-maxage=60",
+        "Cache-Control": `public, max-age=0, s-maxage=${CATEGORIES_CACHE_TTL}`,
       },
     }
   );
