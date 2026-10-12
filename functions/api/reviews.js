@@ -2,6 +2,18 @@
 // { productId, authorName, rating, text }
 
 export async function onRequestPost(context) {
+  try {
+    return await handleReview(context);
+  } catch (err) {
+    // D1 недоступна (наприклад, вичерпано ліміт) — чесний 503 замість необробленого винятку
+    return new Response(
+      JSON.stringify({ ok: false, error: "Сервіс тимчасово недоступний. Спробуйте за кілька хвилин." }),
+      { status: 503, headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": "300", "Cache-Control": "no-store" } }
+    );
+  }
+}
+
+async function handleReview(context) {
   const { env, request } = context;
 
   let body;
