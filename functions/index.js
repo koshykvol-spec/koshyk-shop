@@ -147,22 +147,20 @@ async function renderHome(context) {
     // заповнитись товарами лише з однієї категорії (якщо саме туди
     // недавно залили партію фото) — обмежуємо, щоб "Новинки" відображали
     // різноманітність каталогу, а не один випадковий імпорт.
+    // ВАЖЛИВО: запит розрахований на індекс idx_products_cat_stock_photo
+    // (category_id, in_stock, has_real_photo DESC, id DESC) — з ним читає ~40 рядків
+    // замість ~10 000 (віконна функція по всій таблиці). Без індексу він повільніший!
     db
       .prepare(
-        `SELECT name, slug, price, has_real_photo, image_url, category_slug, category_name
-         FROM (
-           SELECT p.id, p.name, p.slug, p.price, p.has_real_photo, p.image_url,
-                  c.slug as category_slug, c.name_uk as category_name,
-                  ROW_NUMBER() OVER (
-                    PARTITION BY p.category_id
-                    ORDER BY p.has_real_photo DESC, p.id DESC
-                  ) as rn
-           FROM products p
-           JOIN categories c ON c.id = p.category_id
-           WHERE p.in_stock = 1
-         )
-         WHERE rn <= ?
-         ORDER BY has_real_photo DESC, id DESC
+        `SELECT p.name, p.slug, p.price, p.has_real_photo, p.image_url,
+                c.slug AS category_slug, c.name_uk AS category_name
+         FROM categories c
+         JOIN products p ON p.id IN (
+           SELECT id FROM products
+            WHERE category_id = c.id AND in_stock = 1
+            ORDER BY has_real_photo DESC, id DESC
+            LIMIT ?)
+         ORDER BY p.has_real_photo DESC, p.id DESC
          LIMIT ?`
       )
       .bind(NEW_ARRIVALS_MAX_PER_CATEGORY, NEW_ARRIVALS_LIMIT)
