@@ -133,13 +133,15 @@ export async function buildDiff(data, db) {
         priceChanges.push({ sku, name, old: Number(existing.price), neu: Number(price) });
       }
       const oldCatSlug = categorySlugById[existing.category_id] || null;
-      if (oldCatSlug !== categorySlug || (existing.brand || null) !== brand) {
-        moved.push({ sku, name, oldC: oldCatSlug || "—", newC: categorySlug, oldB: existing.brand || "—", newB: brand || "—" });
+      if (oldCatSlug !== categorySlug) {
+        moved.push({ sku, name, oldC: oldCatSlug || "—", newC: categorySlug });
       }
+      // brand свідомо НЕ оновлюється для існуючих товарів (редагується в адмінці товарів);
+      // з 1С береться лише при створенні нового товару (INSERT нижче).
       statements.push({
-        sql: `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, category_id = ?, in_stock = ?,
+        sql: `UPDATE products SET name = ?, name_lower = ?, price = ?, category_id = ?, in_stock = ?,
               source_updated_at = ?, updated_at = datetime('now') WHERE id = ?`,
-        args: [name, name.toLowerCase(), price, brand, categoryId, inStockValue, updatedAt, existing.id],
+        args: [name, name.toLowerCase(), price, categoryId, inStockValue, updatedAt, existing.id],
       });
       updated++;
     } else {
