@@ -1,0 +1,42 @@
+name: Daily Facebook Post (Ощадний Кошик)
+on:
+  schedule:
+    # 5 постів на добу (UTC): 07:25, 10:25, 13:25, 16:25, 19:25 за Києвом влітку.
+    # Зсув на 30 хв від Агронома, щоб не збігалися. Змінюйте години за потреби.
+    - cron: '25 4,7,10,13,16 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Лише показати, що б опублікувалось (без Facebook)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fb-daily-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node post-to-facebook.mjs
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+      - name: Зберегти лог опублікованих
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add posted-log.json
+          # [skip ci] — щоб кожен пост не запускав новий деплой Cloudflare Pages
+          git commit -m "Update posted products log [skip ci]" || echo "No changes"
+          git pull --rebase
+          git push
