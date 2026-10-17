@@ -255,6 +255,7 @@ function clientJs() {
     var html = '<p class="success">' + (preview ? '🔎 Прогноз (нічого не змінено)' : 'Імпорт завершено ✓') + '</p>';
     html += '<p>Рядків у файлі: ' + d.total + '</p>';
     html += '<p>' + (preview ? 'Буде оновлено' : 'Оновлено') + ': ' + d.updated +
+            ' &nbsp; Без змін: ' + (d.unchanged || 0) +
             ' &nbsp; ' + (preview ? 'Буде додано нових' : 'Додано нових') + ': ' + d.added +
             ' &nbsp; ' + (preview ? 'Стане «немає в наявності»' : 'Позначено «немає в наявності»') + ': ' + d.markedOutOfStock + '</p>';
 

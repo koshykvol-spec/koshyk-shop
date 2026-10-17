@@ -63,7 +63,7 @@ export async function buildDiff(data, db) {
 
   // Стан ДО будь-яких змін — і для preview, і для commit це те саме джерело правди
   const { results: existingRows } = await db
-    .prepare("SELECT id, sku, name, price, category_id, brand, in_stock FROM products")
+    .prepare("SELECT id, sku, name, name_lower, price, category_id, brand, in_stock FROM products")
     .all();
   const existingBySku = {};
   const skuOccurrences = {};
@@ -79,6 +79,8 @@ export async function buildDiff(data, db) {
 
   const statements = [];
   let updated = 0;
+  let unchanged = 0;
+  const matchedIds = new Set(); // id існуючих товарів, що зіставились з рядком файлу
   let added = 0;
   let skippedInvalid = 0;
   const skippedSamples = [];
@@ -138,12 +140,26 @@ export async function buildDiff(data, db) {
       }
       // brand свідомо НЕ оновлюється для існуючих товарів (редагується в адмінці товарів);
       // з 1С береться лише при створенні нового товару (INSERT нижче).
-      statements.push({
-        sql: `UPDATE products SET name = ?, name_lower = ?, price = ?, category_id = ?, in_stock = ?,
-              source_updated_at = ?, updated_at = datetime('now') WHERE id = ?`,
-        args: [name, name.toLowerCase(), price, categoryId, inStockValue, updatedAt, existing.id],
-      });
-      updated++;
+      matchedIds.add(existing.id);
+      // Пишемо в D1 лише справді змінений товар: кожен UPDATE коштує записів у таблицю й індекси
+      // (name_lower/category/in_stock), а повний імпорт раніше переписував усі ~2 тис. рядків.
+      const nameLower = name.toLowerCase();
+      const changed =
+        existing.name !== name ||
+        existing.name_lower !== nameLower ||
+        Number(existing.price) !== Number(price) ||
+        existing.category_id !== categoryId ||
+        Number(existing.in_stock) !== inStockValue;
+      if (changed) {
+        statements.push({
+          sql: `UPDATE products SET name = ?, name_lower = ?, price = ?, category_id = ?, in_stock = ?,
+                source_updated_at = ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [name, nameLower, price, categoryId, inStockValue, updatedAt, existing.id],
+        });
+        updated++;
+      } else {
+        unchanged++;
+      }
     } else {
       const skuSourceMatch = sku.match(/^([А-ЯA-Z]+)-/);
       const skuSource = skuSourceMatch ? skuSourceMatch[1] : null;
@@ -159,6 +175,18 @@ export async function buildDiff(data, db) {
       if (inStockValue === 0 && item.inStock === false) {
         wentUnavailableInFile.push({ sku, name, alreadyInactive: false });
       }
+    }
+  }
+
+  // Раніше commit спершу ставив in_stock = 0 УСІМ товарам, а потім піднімав товари з файлу.
+  // Тепер гасимо лише те, що не зіставилось з файлом і ще не погашене (той самий результат,
+  // але записів у кілька разів менше). Це також гасить зайві дублі sku в базі.
+  for (const r of existingRows) {
+    if (!matchedIds.has(r.id) && Number(r.in_stock) !== 0) {
+      statements.push({
+        sql: `UPDATE products SET in_stock = 0, updated_at = datetime('now') WHERE id = ?`,
+        args: [r.id],
+      });
     }
   }
 
@@ -187,6 +215,7 @@ export async function buildDiff(data, db) {
     report: {
       total: data.length,
       updated,
+      unchanged,
       added,
       skippedInvalid,
       skippedSamples,

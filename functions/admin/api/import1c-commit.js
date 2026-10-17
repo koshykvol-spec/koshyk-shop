@@ -1,10 +1,11 @@
 // POST /admin/api/import1c-commit
 // Тіло: сирий JSON-масив products.json з 1С.
 //
-// Стратегія "немає в наявності" у два кроки (уникаємо NOT IN на 2000+ sku):
-//   1. Одним UPDATE позначаємо УСІ товари in_stock = 0.
-//   2. Кожен товар з файлу піднімає себе назад через statements з buildDiff().
-// Товари, яких у файлі не було, лишаються in_stock = 0.
+// Стратегія запису (мінімум записів у D1 — безкоштовний план має денний ліміт rows written):
+//   - UPDATE лише для товарів, у яких справді змінилась назва/ціна/категорія/наявність;
+//   - in_stock = 0 лише для тих, кого немає у файлі й хто ще не погашений.
+// Усе це готує buildDiff() у вигляді statements (раніше тут був "UPDATE products SET in_stock = 0"
+// для ВСІХ товарів, а потім UPDATE для кожного товару з файлу — по 2 записи на товар за імпорт).
 //
 // Diff (хто created/updated/backInStock/priceChanges/moved/disappeared)
 // рахується buildDiff() з _import1c-lib.js — тим самим кодом, що й
@@ -32,10 +33,7 @@ export async function onRequestPost(context) {
   const diff = await buildDiff(data, env.koshyk_db);
   if (!diff.ok) return json(diff, 400);
 
-  // Крок 1: усі товари тимчасово "немає в наявності"
-  await env.koshyk_db.prepare("UPDATE products SET in_stock = 0").run();
-
-  // Крок 2: statements із buildDiff піднімають назад товари з файлу
+  // statements із buildDiff: зміни, нові товари, погашення зниклих
   const stmts = diff.statements.map((s) => env.koshyk_db.prepare(s.sql).bind(...s.args));
   for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
     await env.koshyk_db.batch(stmts.slice(i, i + BATCH_SIZE));
