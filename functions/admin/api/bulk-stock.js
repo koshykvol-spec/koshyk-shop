@@ -2,6 +2,8 @@
 // { ids: [1,2,3], inStock: true|false }
 // Масова зміна наявності для вибраних товарів (з чекбоксів у таблиці /admin/products).
 
+import { invalidateCatalogStats } from "../../_lib/catalog-stats.js";
+
 export async function onRequestPost(context) {
   const { env, request } = context;
 
@@ -23,6 +25,7 @@ export async function onRequestPost(context) {
     .bind(inStock ? 1 : 0, ...ids)
     .run();
 
+  await invalidateCatalogStats(env.koshyk_db);
   return json({ ok: true, updated: ids.length });
 }
 

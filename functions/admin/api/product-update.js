@@ -6,6 +6,8 @@
 // sku тут не редагується, тому sku_lower не чіпаємо.
 // inStock — ручний перемикач наявності (окремо від автоматичного оновлення з 1С-імпорту).
 
+import { invalidateCatalogStats } from "../../_lib/catalog-stats.js";
+
 export async function onRequestPost(context) {
   const { env, request } = context;
 
@@ -44,6 +46,7 @@ export async function onRequestPost(context) {
     .bind(id, description || null, metaTitle || null, metaDescription || null, keywords || null)
     .run();
 
+  await invalidateCatalogStats(env.koshyk_db);
   return json({ ok: true });
 }
 

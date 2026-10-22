@@ -3,6 +3,8 @@
 
 const BATCH_SIZE = 50;
 
+import { invalidateCatalogStats } from "../../_lib/catalog-stats.js";
+
 export async function onRequestPost(context) {
   const { env, request } = context;
 
@@ -35,6 +37,7 @@ export async function onRequestPost(context) {
     updated += Math.min(BATCH_SIZE, statements.length - i);
   }
 
+  await invalidateCatalogStats(env.koshyk_db);
   return json({ ok: true, updated });
 }
 

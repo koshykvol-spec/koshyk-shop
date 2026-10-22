@@ -19,6 +19,8 @@ import { buildDiff } from "./_import1c-lib.js";
 
 const BATCH_SIZE = 50;
 
+import { invalidateCatalogStats } from "../../_lib/catalog-stats.js";
+
 export async function onRequestPost(context) {
   const { env, request } = context;
 
@@ -38,6 +40,8 @@ export async function onRequestPost(context) {
   for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
     await env.koshyk_db.batch(stmts.slice(i, i + BATCH_SIZE));
   }
+
+  await invalidateCatalogStats(env.koshyk_db);
 
   const outOfStockRow = await env.koshyk_db
     .prepare("SELECT COUNT(*) as cnt FROM products WHERE in_stock = 0")

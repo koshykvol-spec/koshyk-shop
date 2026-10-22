@@ -86,6 +86,8 @@ async function cached(context, render, opts = {}) {
   });
 }
 
+import { getCatalogStats } from "../_lib/catalog-stats.js";
+
 export async function onRequestGet(context) {
   return cached(context, getCategories, { errorBody: '{"ok":false,"error":"temporarily unavailable"}', errorType: 'application/json; charset=utf-8' });
 }
@@ -93,28 +95,9 @@ export async function onRequestGet(context) {
 async function getCategories(context) {
   const { env } = context;
 
-  const { results: categories } = await env.koshyk_db
-    .prepare(
-      `SELECT c.slug, c.name_uk,
-              COUNT(CASE WHEN p.in_stock = 1 THEN 1 END) as in_stock_count,
-              COUNT(p.id) as total_count
-       FROM categories c
-       LEFT JOIN products p ON p.category_id = c.id
-       GROUP BY c.id
-       ORDER BY in_stock_count DESC`
-    )
-    .all();
-
-  const totalsRow = await env.koshyk_db
-    .prepare(
-      `SELECT
-         COUNT(CASE WHEN in_stock = 1 THEN 1 END) as total_in_stock,
-         COUNT(*) as total_all,
-         MIN(CASE WHEN in_stock = 1 THEN price END) as min_price,
-         MAX(CASE WHEN in_stock = 1 THEN price END) as max_price
-       FROM products`
-    )
-    .first();
+  const stats = await getCatalogStats(env.koshyk_db);
+  const categories = stats.categories;
+  const totalsRow = stats.totals;
 
   return new Response(
     JSON.stringify({

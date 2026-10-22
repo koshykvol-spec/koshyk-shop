@@ -22,6 +22,8 @@ const CATEGORY_META = {
 };
 const DEFAULT_META = { icon: "\ud83d\uded2", desc: "" };
 
+import { getCatalogStats } from "./_lib/catalog-stats.js";
+
 const PUBLIC_SITE_KEYS = ["store_phone", "store_address", "about_text", "contacts_text"];
 
 const DEFAULT_ABOUT =
@@ -112,26 +114,8 @@ async function renderHome(context) {
   const NEW_ARRIVALS_LIMIT = 8;
   const NEW_ARRIVALS_MAX_PER_CATEGORY = 2;
 
-  const [{ results: categories }, totalsRow, siteRows, { results: newArrivals }] = await Promise.all([
-    db
-      .prepare(
-        `SELECT c.slug, c.name_uk,
-                COUNT(CASE WHEN p.in_stock = 1 THEN 1 END) as in_stock_count
-         FROM categories c
-         LEFT JOIN products p ON p.category_id = c.id
-         GROUP BY c.id
-         ORDER BY in_stock_count DESC`
-      )
-      .all(),
-    db
-      .prepare(
-        `SELECT
-           COUNT(CASE WHEN in_stock = 1 THEN 1 END) as total_in_stock,
-           MIN(CASE WHEN in_stock = 1 THEN price END) as min_price,
-           MAX(CASE WHEN in_stock = 1 THEN price END) as max_price
-         FROM products`
-      )
-      .first(),
+  const [stats, siteRows, { results: newArrivals }] = await Promise.all([
+    getCatalogStats(db),
     db
       .prepare(
         `SELECT key, value FROM site_settings WHERE key IN (${PUBLIC_SITE_KEYS.map(() => "?").join(",")})`
@@ -167,6 +151,8 @@ async function renderHome(context) {
       .all(),
   ]);
 
+  const categories = stats.categories;
+  const totalsRow = stats.totals;
   const siteValues = {};
   (siteRows.results || []).forEach((r) => { siteValues[r.key] = r.value; });
 

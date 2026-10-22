@@ -4,6 +4,8 @@
 // і functions/catalog/[slug].js (серверний рендер першої сторінки —
 // щоб не дублювати SQL у двох місцях і не розходитись з часом).
 
+import { getCatalogStats } from "./catalog-stats.js";
+
 const DEFAULT_PER_PAGE = 24;
 const ALLOWED_PER_PAGE = new Set([12, 24, 48, 96]);
 const CLOTHING_SLUGS = new Set(["odyah", "vzuttya"]);
@@ -93,23 +95,21 @@ export async function queryCatalog(db, category, filters, slug) {
     .bind(...bindings, perPage, offset)
     .all();
 
+  // JOIN з product_content потрібен лише для фільтрів gender/ageGroup — без нього рахуємо по індексу.
+  const needJoin = !!(gender || ageGroup);
   const countSql = `
     SELECT COUNT(*) as total
     FROM products p
-    LEFT JOIN product_content pc ON pc.product_id = p.id
+    ${needJoin ? "LEFT JOIN product_content pc ON pc.product_id = p.id" : ""}
     WHERE ${whereClause}
   `;
   const countRow = await db.prepare(countSql).bind(...bindings).first();
   const total = countRow ? countRow.total : 0;
 
   // --- Фасети для фільтрів UI ---
-  const { results: brandRows } = await db
-    .prepare(
-      "SELECT DISTINCT brand FROM products WHERE category_id = ? AND brand IS NOT NULL AND brand != '' ORDER BY brand"
-    )
-    .bind(category.id)
-    .all();
-  const brands = brandRows.map((r) => r.brand);
+  const stats = await getCatalogStats(db);
+  const brands = (stats.brands && stats.brands[category.id]) || [];
+  const catStat = stats.categories.find((c) => c.id === category.id);
 
   let genders = [];
   let ageGroups = [];
@@ -135,11 +135,6 @@ export async function queryCatalog(db, category, filters, slug) {
     ageGroups = ageRows.map((r) => r.a);
   }
 
-  const priceRow = await db
-    .prepare("SELECT MIN(price) as min, MAX(price) as max FROM products WHERE category_id = ?")
-    .bind(category.id)
-    .first();
-
   return {
     total,
     page,
@@ -161,8 +156,8 @@ export async function queryCatalog(db, category, filters, slug) {
       brands,
       genders,
       ageGroups,
-      priceMin: priceRow ? priceRow.min : 0,
-      priceMax: priceRow ? priceRow.max : 0,
+      priceMin: catStat ? catStat.price_min : 0,
+      priceMax: catStat ? catStat.price_max : 0,
     },
   };
 }
