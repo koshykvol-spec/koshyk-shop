@@ -189,7 +189,7 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
   // фото товару — заглушку туди додавати не варто (це не фото товару).
   const ogImageUrl = absImageUrl || `${SITE_URL}/og-share.png`;
   const shortDescription = p.description
-    ? p.description.slice(0, 160)
+    ? mdToPlain(p.description).slice(0, 160)
     : `${p.name} — ${Number(p.price).toFixed(2)} ₴. Купити в Ощадному Кошику.`;
 
   const productJsonLd = {
@@ -199,7 +199,7 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
     sku: p.sku,
     ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
     ...(absImageUrl ? { image: [absImageUrl] } : {}),
-    ...(p.description ? { description: p.description } : {}),
+    ...(p.description ? { description: mdToPlain(p.description) } : {}),
     url: productUrl,
     offers: {
       "@type": "Offer",
@@ -568,7 +568,7 @@ ${`<meta property="og:image" content="${ogImageUrl}">`}
       ${settings.store_phone ? `<p><span class="delivery-icon">📞</span> <b>Консультація:</b> ${escapeHtml(settings.store_phone)}</p>` : ""}
     </div>
 
-    ${p.description ? `<div class="description"><h2>Опис</h2><p>${escapeHtml(p.description)}</p></div>` : ""}
+    ${p.description ? `<div class="description"><h2>Опис</h2>${mdToHtml(p.description)}</div>` : ""}
   </div>
 </div>
 
@@ -839,6 +839,51 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+// Мінімальний Markdown → HTML для опису товару (той самий, що в Агрономі).
+// Підтримує **жирний**, *курсив*, #/##/### заголовки, списки "- " та "1. ".
+// Увесь текст екранується через escapeHtml, тому HTML з опису не виконується.
+function mdToHtml(md) {
+  const inl = (t) => escapeHtml(t)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>");
+  const lines = String(md || "").split(/\r?\n/);
+  let html = "", i = 0;
+  while (i < lines.length) {
+    const b = lines[i].trim();
+    if (!b) { i++; continue; }
+    if (/^### /.test(b)) { html += "<h4>" + escapeHtml(b.slice(4)) + "</h4>"; i++; continue; }
+    if (/^## /.test(b))  { html += "<h3>" + escapeHtml(b.slice(3)) + "</h3>"; i++; continue; }
+    if (/^# /.test(b))   { html += "<h3>" + escapeHtml(b.slice(2)) + "</h3>"; i++; continue; }
+    if (/^- /.test(b)) {
+      const items = [];
+      while (i < lines.length && /^- /.test(lines[i].trim())) {
+        items.push("<li>" + inl(lines[i].trim().replace(/^-\s*/, "")) + "</li>"); i++;
+      }
+      html += "<ul>" + items.join("") + "</ul>"; continue;
+    }
+    if (/^\d+\.\s/.test(b)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+        items.push("<li>" + inl(lines[i].trim().replace(/^\d+\.\s*/, "")) + "</li>"); i++;
+      }
+      html += "<ol>" + items.join("") + "</ol>"; continue;
+    }
+    html += "<p>" + inl(b) + "</p>"; i++;
+  }
+  return html;
+}
+
+// Прибирає markdown-розмітку для meta/JSON-LD, де потрібен простий текст.
+function mdToPlain(md) {
+  return String(md || "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/^\s*(?:-|\d+\.)\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // JSON.stringify всередині <script>, з екрануванням "</" — щоб опис
 // товару з БД не міг передчасно закрити тег <script>.
 function safeJsonLd(obj) {
@@ -970,7 +1015,12 @@ function css() {
 
   .description { margin-top: 34px; padding-top: 24px; border-top: 2px solid var(--line); }
   .description h2 { font-size: 1.1rem; margin-bottom: 10px; }
-  .description p { color: var(--ink-soft); font-size: 0.94rem; }
+  .description p { color: var(--ink-soft); font-size: 0.94rem; margin: 0 0 10px; }
+  .description h3 { font-size: 1.02rem; margin: 16px 0 8px; }
+  .description h4 { font-size: 0.96rem; margin: 14px 0 6px; }
+  .description ul, .description ol { color: var(--ink-soft); font-size: 0.94rem; margin: 0 0 10px; padding-left: 22px; }
+  .description li { margin-bottom: 4px; }
+  .description strong { color: var(--ink); }
 
   .related-section { background: var(--card); padding: 50px 0 60px; border-top: 2px solid var(--line); }
   .related-section h2 { font-weight: 700; font-size: 1.4rem; margin-bottom: 24px; }
