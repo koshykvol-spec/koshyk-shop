@@ -459,7 +459,7 @@ ${sharedCss()}
 <footer>
   <div class="wrap foot-row">
     <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
-    <span><a href="/">← На головну</a></span>
+    <span><a href="/katalog">Повний каталог</a> · <a href="/">← На головну</a></span>
   </div>
 </footer>
 

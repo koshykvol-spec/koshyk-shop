@@ -8,7 +8,8 @@ async function renderMain(context) {
   const r = await db.prepare(`SELECT slug FROM categories WHERE is_active = 1`).all();
   const cats = (r.results || []).map(x => x.slug).filter(Boolean);
 
-  const entries = [`  <url><loc>${escapeXml(origin + '/')}</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`]
+  const entries = [`  <url><loc>${escapeXml(origin + '/')}</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
+    `  <url><loc>${escapeXml(origin + '/katalog')}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`]
     .concat(cats.map(s =>
       `  <url><loc>${escapeXml(origin + '/catalog/' + s)}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`));
   return xmlResponse(urlset(entries));

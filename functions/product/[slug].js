@@ -623,7 +623,7 @@ ${
 <footer>
   <div class="wrap foot-row">
     <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
-    <span><a href="/catalog/${escapeHtml(p.category_slug)}">← До категорії "${escapeHtml(p.category_name)}"</a></span>
+    <span><a href="/katalog">Повний каталог</a> · <a href="/catalog/${escapeHtml(p.category_slug)}">← До категорії "${escapeHtml(p.category_name)}"</a></span>
   </div>
 </footer>
 

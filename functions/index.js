@@ -361,7 +361,7 @@ ${newArrivalsHtml}
     </div>
     <div class="foot-row">
       <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
-      <span>Частина мережі магазинів, до якої входить також Агроном</span>
+      <span><a href="/katalog">Повний каталог товарів</a> · Частина мережі магазинів, до якої входить також Агроном</span>
     </div>
   </div>
 </footer>
