@@ -49,7 +49,7 @@ export async function onRequestGet(context) {
 
   const productsSql = `
     SELECT p.id, p.sku, p.name, p.price, p.brand, p.image_url, p.has_real_photo, p.in_stock,
-           c.name_uk as category_name, pc.description, pc.meta_title, pc.meta_description, pc.keywords
+           c.name_uk as category_name, p.category_id, pc.description, pc.meta_title, pc.meta_description, pc.keywords
     FROM products p
     JOIN categories c ON c.id = p.category_id
     LEFT JOIN product_content pc ON pc.product_id = p.id
@@ -86,6 +86,7 @@ export async function onRequestGet(context) {
         hasRealPhoto: !!p.has_real_photo,
         inStock: !!p.in_stock,
         categoryName: p.category_name,
+        categoryId: p.category_id,
         description: p.description,
         metaTitle: p.meta_title,
         metaDescription: p.meta_description,

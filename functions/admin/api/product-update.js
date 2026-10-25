@@ -1,5 +1,5 @@
 // POST /admin/api/product-update
-// { id, name, price, brand, description, metaTitle, metaDescription, keywords, inStock }
+// { id, name, price, brand, categoryId, description, metaTitle, metaDescription, keywords, inStock }
 //
 // name_lower оновлюється разом з name для регістронезалежного пошуку
 // (кирилиця не приводиться до нижнього регістру через SQL LOWER()).
@@ -18,16 +18,26 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: "Некоректний запит" }, 400);
   }
 
-  const { id, name, price, brand, description, metaTitle, metaDescription, keywords, inStock } = body;
+  const { id, name, price, brand, categoryId, description, metaTitle, metaDescription, keywords, inStock } = body;
   if (!id || !name || isNaN(price)) {
     return json({ ok: false, error: "Заповніть назву і коректну ціну" }, 400);
   }
 
+  // Категорія обов'язкова і має існувати в таблиці categories.
+  const catId = Number(categoryId);
+  if (!Number.isInteger(catId) || catId <= 0) {
+    return json({ ok: false, error: "Оберіть категорію товару" }, 400);
+  }
+  const cat = await env.koshyk_db.prepare("SELECT id FROM categories WHERE id = ?").bind(catId).first();
+  if (!cat) {
+    return json({ ok: false, error: "Невідома категорія" }, 400);
+  }
+
   await env.koshyk_db
     .prepare(
-      `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, in_stock = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE products SET name = ?, name_lower = ?, price = ?, brand = ?, category_id = ?, in_stock = ?, updated_at = datetime('now') WHERE id = ?`
     )
-    .bind(name, name.toLowerCase(), price, brand || null, inStock ? 1 : 0, id)
+    .bind(name, name.toLowerCase(), price, brand || null, catId, inStock ? 1 : 0, id)
     .run();
 
   // product_content могло не існувати (створювалось тільки для одягу/взуття

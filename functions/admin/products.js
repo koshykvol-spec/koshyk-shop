@@ -5,7 +5,7 @@
 export async function onRequestGet(context) {
   const { env } = context;
   const { results: categories } = await env.koshyk_db
-    .prepare("SELECT slug, name_uk FROM categories ORDER BY sort_order")
+    .prepare("SELECT id, slug, name_uk FROM categories ORDER BY sort_order")
     .all();
   const { results: brandRows } = await env.koshyk_db
     .prepare("SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != '' ORDER BY brand")
@@ -20,6 +20,10 @@ export async function onRequestGet(context) {
 function renderPage(categories, brands) {
   const options = categories
     .map((c) => `<option value="${c.slug}">${escapeHtml(c.name_uk)}</option>`)
+    .join("");
+  // Для форми редагування товару: value = id категорії (products.category_id).
+  const editCategoryOptions = categories
+    .map((c) => `<option value="${c.id}">${escapeHtml(c.name_uk)}</option>`)
     .join("");
   const brandOptions = brands.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
 
@@ -228,6 +232,12 @@ function renderPage(categories, brands) {
     <div class="form-row"><label>Назва</label><input type="text" id="editName"></div>
     <div class="form-row"><label>Ціна, ₴</label><input type="number" step="0.01" id="editPrice"></div>
     <div class="form-row"><label>Бренд</label><input type="text" id="editBrand"></div>
+    <div class="form-row"><label>Категорія <span style="color:#c0392b">*</span></label>
+      <select id="editCategory" required>
+        <option value="">— оберіть категорію —</option>
+        ${editCategoryOptions}
+      </select>
+    </div>
     <div class="form-row form-row-checkbox">
       <label class="checkbox-label">
         <input type="checkbox" id="editInStock">
@@ -429,6 +439,7 @@ function clientJs() {
     document.getElementById("editName").value = p.name;
     document.getElementById("editPrice").value = p.price;
     document.getElementById("editBrand").value = p.brand || "";
+    document.getElementById("editCategory").value = p.categoryId ? String(p.categoryId) : "";
     document.getElementById("editInStock").checked = !!p.inStock;
     document.getElementById("editDescription").value = p.description || "";
     document.getElementById("editMetaTitle").value = p.metaTitle || "";
@@ -639,11 +650,17 @@ function clientJs() {
 
   document.getElementById("saveEdit").addEventListener("click", function () {
     var statusEl = document.getElementById("modalStatus");
+    if (!document.getElementById("editCategory").value) {
+      statusEl.textContent = "Оберіть категорію товару";
+      document.getElementById("editCategory").focus();
+      return;
+    }
     var payload = {
       id: document.getElementById("editId").value,
       name: document.getElementById("editName").value,
       price: parseFloat(document.getElementById("editPrice").value),
       brand: document.getElementById("editBrand").value,
+      categoryId: parseInt(document.getElementById("editCategory").value, 10),
       inStock: document.getElementById("editInStock").checked,
       description: document.getElementById("editDescription").value,
       metaTitle: document.getElementById("editMetaTitle").value,
