@@ -103,7 +103,7 @@ async function renderCategoryPage(context) {
   const slug = params.slug;
 
   const category = await env.koshyk_db
-    .prepare("SELECT id, slug, name_uk FROM categories WHERE slug = ?")
+    .prepare("SELECT id, slug, name_uk, seo_text FROM categories WHERE slug = ?")
     .bind(slug)
     .first();
 
@@ -119,7 +119,7 @@ async function renderCategoryPage(context) {
 
   const initial = await queryCatalog(env.koshyk_db, category, defaultCatalogFilters(), slug);
 
-  return new Response(renderPage(category.slug, category.name_uk, icon, isClothing, initial), {
+  return new Response(renderPage(category.slug, category.name_uk, icon, isClothing, initial, category.seo_text), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -133,10 +133,17 @@ function renderNotFound() {
 </body></html>`;
 }
 
-function renderPage(slug, nameUk, icon, isClothing, initial) {
+function renderPage(slug, nameUk, icon, isClothing, initial, seoText) {
   const SITE_URL = "https://koshyk.pp.ua";
   const categoryUrl = `${SITE_URL}/catalog/${slug}`;
-  const description = `${nameUk} за ощадними цінами в інтернет-магазині Ощадний Кошик.`;
+  const seoPlain = String(seoText || "").replace(/\s+/g, " ").replace(/[<>"&]/g, "").trim();
+  const description = seoPlain
+    ? (seoPlain.length > 155 ? seoPlain.slice(0, 155).replace(/\s+\S*$/, "") + "…" : seoPlain)
+    : nameUk + " за ощадними цінами в інтернет-магазині Ощадний Кошик.";
+  const seoParagraphs = String(seoText || "").split(/\n\s*\n/).map(function (t) { return t.trim(); }).filter(Boolean);
+  const seoHtml = seoParagraphs.length
+    ? '<section class="wrap"><div class="cat-seo"><h2>Про категорію «' + escapeHtml(nameUk) + '»</h2>' + seoParagraphs.map(function (t) { return '<p>' + escapeHtml(t) + '</p>'; }).join("") + '</div></section>'
+    : "";
 
   const jsonLd = [
     {
@@ -456,6 +463,7 @@ ${sharedCss()}
   </main>
 </div>
 
+${seoHtml}
 <footer>
   <div class="wrap foot-row">
     <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
@@ -629,6 +637,10 @@ function sharedCss() {
 
   footer { padding: 40px 0; border-top: 2px solid var(--line); margin-top: 20px; }
   .foot-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 0.86rem; color: var(--ink-soft); }
+
+  .cat-seo { max-width: 860px; padding-bottom: 50px; }
+  .cat-seo h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+  .cat-seo p { color: var(--ink-soft); font-size: 0.94rem; margin-bottom: 10px; }
 
   @media (max-width: 880px) {
     .layout { grid-template-columns: 1fr; }
