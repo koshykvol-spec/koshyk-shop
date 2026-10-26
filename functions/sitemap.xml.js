@@ -13,3 +13,5 @@ export async function onRequestGet(context) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</sitemapindex>\n`;
   return xmlResponse(xml);
 }
+
+export const onRequestHead = onRequestGet;

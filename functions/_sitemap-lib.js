@@ -26,7 +26,8 @@ export function urlset(entries) {
 
 export async function cached(context, render) {
   const { request } = context;
-  if (request.method !== 'GET') return render(context);
+  // GET і HEAD проходять через кеш (ключі кешу завжди будуються як GET)
+  if (request.method !== 'GET' && request.method !== 'HEAD') return render(context);
   const url = new URL(request.url);
   const cache = caches.default;
   const key = new Request(url.origin + url.pathname);

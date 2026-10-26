@@ -18,3 +18,5 @@ async function renderMain(context) {
 export async function onRequestGet(context) {
   return cached(context, renderMain);
 }
+
+export const onRequestHead = onRequestGet;

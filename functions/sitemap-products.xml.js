@@ -22,3 +22,5 @@ async function renderProducts(context) {
 export async function onRequestGet(context) {
   return cached(context, renderProducts);
 }
+
+export const onRequestHead = onRequestGet;
