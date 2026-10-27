@@ -13,7 +13,7 @@ export async function onRequestGet(context) {
 }
 
 const DEFAULT_BRANDS =
-  "Axent, 4Office, Economix, Buromax, Bourgeois, Josefotten, Centropen, Marco, Class, Radius, Piano, Zibi, Aihao, Hiper, Norma, Yes, Polly";
+  "1 Вересня, 4Office, Aihao, AirFresh, Alerus, Always, Андрекс, Аполлон, ARIEL, ARKO, Axent, BIC, BioBlysk, BLAND-A-MED, Booba, Bourgeois, Buromax, Camelion, Centropen, Chante Clair, Class, Color-It, Colorit, COLGATE, Comely, Conte, Devil, Discreet, Doobl, Duracell, DURU, Economix, Economy Line, ELIZABETH, Empire, ENERLIGHT, Energizer, Fairy, FAX, Flair, Flambo, Formil, Fresh, G-Toys, Gilette, GP, Grundwald, HIPER, Horse, Intertool, Josef, Josef Otten, Josefotten, Joyko, KRADEO, Kotex, Kret, Lady Cotton, Leader, Liora, Ludwik, Marco, Mildy, Modern Family, Mr Helper, NATURELLA, Nature, Neo Line, Old Spice, Olis, ORKEY, Pentonic, Piano, Piknik, Polly, ProDom, Rablex, Radius, Rapira, Romar, SAMA, Sany, SAVO, SANINO, Septima, SKY Wind, Sleepy, SOLLA, Stenson, Tytan, UOMO, Valsar, VARTA, Videx, Vivat, Washkonig, WINSO, Yes, Zibi, Zinger, Zella, Авто-майстер, АРКО, Барвінок, Бері, Блискавка, Віват, Венец, Відекс, Гамма, ГалТерра, Глорія, Горизонт, Данко, Добрий, Друг, Економікс, Експерт, Житомир, Злато Трав, Зінгер, Каваті, Кармеліта, Кохавинка, Корвина, Лідер, Лідер-канц, Мандарин, Молдова, МультиПульти, Норма, Парус, Пегас, Персолька, Подолянка, Прелесть, Прелесна, Радуга, Рапіра, Рушничок, Рюкзачок, Світ Поздоровлень, Сила, Талант, Технок, Творчість, Умка, Фенікс, Фея, Фітодоктор, Чистий дім, Шарм, Школярик";
 
 function renderPage(categories) {
   const options = categories.map((c) => `<option value="${c.slug}">${escapeHtml(c.name_uk)}</option>`).join("");
