@@ -226,6 +226,7 @@ function renderPage(pending, approved) {
       <a href="/admin/orders">Замовлення</a>
       <a href="/admin/products">Товари</a>
       <a href="/admin/reviews" class="active">Відгуки</a>
+      <a href="/admin/reviews-bulk">Імпорт відгуків</a>
       <a href="/admin/settings">Налаштування</a>
       <a href="/">← На сайт</a>
     </nav>

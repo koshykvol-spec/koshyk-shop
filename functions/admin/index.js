@@ -209,6 +209,11 @@ function renderPage() {
         <span class="card-title">Відгуки</span>
         <span class="card-sub" id="reviewsSub">…</span>
       </a>
+      <a class="admin-card" href="/admin/reviews-bulk">
+        <span class="card-icon">💬</span>
+        <span class="card-title">Імпорт відгуків</span>
+        <span class="card-sub">Справжні відгуки: Google, Facebook, Prom</span>
+      </a>
     </div>
   </div>
 
