@@ -45,7 +45,7 @@ const ALIASES = {
   sku: ["sku", "артикул", "код"],
   id: ["id", "product_id", "pid"],
   product: ["product", "product_name", "товар", "назва"],
-  author: ["author", "author_name", "автор", "ім'я", "імя", "name"],
+  author: ["author", "author_name", "автор", "ім'я", "імя"],
   rating: ["rating", "оцінка", "рейтинг", "stars"],
   text: ["text", "review", "відгук", "текст", "comment"],
   date: ["date", "created_at", "дата"],
@@ -94,7 +94,59 @@ function parseDate(s) {
 
 // ---------- GET: сторінка ----------
 
-export async function onRequestGet() {
+// GET /admin/reviews-bulk                          — сторінка
+// GET /admin/reviews-bulk?list=1&offset=0          — JSON: 50 товарів без жодного відгуку
+// GET /admin/reviews-bulk?export=1&offset=0        — те саме у вигляді CSV-шаблону для заповнення
+// «Без відгуків» = немає жодного рядка в product_reviews (і схвалених, і тих, що на модерації),
+// тому щойно залиті товари з цього списку зникають самі.
+
+const PAGE = 50;
+
+async function productsWithoutReviews(db, offset) {
+  const total = await db
+    .prepare("SELECT COUNT(*) AS n FROM products p WHERE NOT EXISTS (SELECT 1 FROM product_reviews r WHERE r.product_id = p.id)")
+    .first();
+  const { results } = await db
+    .prepare(
+      "SELECT p.sku, p.name FROM products p WHERE NOT EXISTS (SELECT 1 FROM product_reviews r WHERE r.product_id = p.id) ORDER BY p.id LIMIT ? OFFSET ?"
+    )
+    .bind(PAGE, offset)
+    .all();
+  return { total: (total && total.n) | 0, items: results || [] };
+}
+
+const csvCell = (v) => {
+  const s = String(v == null ? "" : v);
+  return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+
+export async function onRequestGet(context) {
+  const url = new URL(context.request.url);
+  const wantList = url.searchParams.get("list") === "1";
+  const wantCsv = url.searchParams.get("export") === "1";
+
+  if (wantList || wantCsv) {
+    let offset = parseInt(url.searchParams.get("offset") || "0", 10);
+    if (!(offset >= 0)) offset = 0;
+    const { total, items } = await productsWithoutReviews(context.env.koshyk_db, offset);
+
+    if (wantList) {
+      return json({ ok: true, total, offset, limit: PAGE, items });
+    }
+
+    // Колонка названа "product" (а не "name"), щоб імпортер не сприйняв її за автора.
+    const lines = ["sku;product;author;rating;text;date"].concat(
+      items.map((p) => [csvCell(p.sku), csvCell(p.name), "", "", "", ""].join(";"))
+    );
+    return new Response("﻿" + lines.join("\r\n") + "\r\n", {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="tovary-bez-vidgukiv-${offset + 1}-${offset + items.length}.csv"`,
+        "X-Total-Remaining": String(total),
+      },
+    });
+  }
+
   return new Response(renderPage(), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
@@ -233,6 +285,16 @@ function renderPage() {
     <div class="soft">Товар шукається за <code>sku</code>, далі за <code>id</code>, далі за точною назвою (<code>product</code>). <code>date</code> необов'язкова (YYYY-MM-DD або ДД.ММ.РРРР); без неї ставиться сьогоднішня. <code>rating</code> — 1–5.</div>
   </div>
 
+  <div class="box">
+    <b>Товари без відгуків</b> <span id="nrTotal" class="soft"></span>
+    <p class="soft" style="margin:4px 0 8px">Показує по 50 товарів, у яких ще немає жодного відгуку (ні на сайті, ні в черзі модерації). Завантаж CSV-шаблон, заповни колонки <code>author</code>, <code>rating</code>, <code>text</code>, <code>date</code> справжніми відгуками й вставте нижче.</p>
+    <button class="btn gray" id="nrShow" type="button">Показати 50</button>
+    <button class="btn gray" id="nrPrev" type="button" hidden>← Попередні 50</button>
+    <button class="btn gray" id="nrNext" type="button" hidden>Наступні 50 →</button>
+    <a class="btn" id="nrCsv" href="#" hidden>⬇️ CSV-шаблон</a>
+    <div id="nrList" class="rows"></div>
+  </div>
+
   <p>
     <label class="btn gray" style="cursor:pointer">📂 Обрати файл (.json / .csv / .txt)
       <input type="file" id="f" accept=".json,.csv,.tsv,.txt,text/plain,text/csv,application/json" hidden>
@@ -267,6 +329,35 @@ $("f").onchange = function (e) {
   $("fn").textContent = file.name;
   file.text().then(function (t) { $("ta").value = t; $("imp").disabled = true; });
 };
+var nrOffset = 0, nrTotal = 0;
+
+function loadNoReviews(offset) {
+  $("nrList").textContent = "завантаження…";
+  fetch("/admin/reviews-bulk?list=1&offset=" + offset)
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.ok) { $("nrList").textContent = "❌ помилка"; return; }
+      nrOffset = d.offset; nrTotal = d.total;
+      $("nrTotal").textContent = "— усього: " + d.total;
+      if (!d.items.length) {
+        $("nrList").innerHTML = d.total ? "Далі списку немає." : "🎉 Усі товари вже мають відгуки.";
+      } else {
+        $("nrList").innerHTML = d.items.map(function (p, i) {
+          return '<div class="row"><span class="soft">' + (d.offset + i + 1) + '.</span> <b class="mono">' + esc(p.sku) + "</b> · " + esc(p.name) + "</div>";
+        }).join("");
+      }
+      $("nrShow").hidden = true;
+      $("nrPrev").hidden = d.offset <= 0;
+      $("nrNext").hidden = d.offset + d.limit >= d.total;
+      $("nrCsv").hidden = !d.items.length;
+      $("nrCsv").href = "/admin/reviews-bulk?export=1&offset=" + d.offset;
+    })
+    .catch(function () { $("nrList").textContent = "❌ помилка з'єднання"; });
+}
+$("nrShow").onclick = function () { loadNoReviews(0); };
+$("nrPrev").onclick = function () { loadNoReviews(Math.max(0, nrOffset - 50)); };
+$("nrNext").onclick = function () { loadNoReviews(nrOffset + 50); };
+
 $("ta").oninput = function () { $("imp").disabled = true; };
 $("appr").onchange = function () { $("imp").disabled = true; };
 
