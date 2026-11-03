@@ -6,9 +6,9 @@
 
 const MAX_LEN = 2000;
 
-// Дозволена кількість змінених символів: 4% довжини, але від 3 до 10.
+// Дозволена кількість змінених символів: 40% довжини, але від 3 до 100.
 function allowedEdits(oldLen) {
-  return Math.min(10, Math.max(3, Math.ceil(oldLen * 0.04)));
+  return Math.min(100, Math.max(3, Math.ceil(oldLen * 0.4)));
 }
 
 function levenshtein(a, b) {
