@@ -74,9 +74,9 @@ export async function queryCatalog(db, category, filters, slug) {
 
   const whereClause = where.join(" AND ");
 
-  let orderBy = "p.name ASC";
-  if (sort === "price_asc") orderBy = "p.price ASC";
-  if (sort === "price_desc") orderBy = "p.price DESC";
+  let orderBy = "p.name ASC, p.id ASC";
+  if (sort === "price_asc") orderBy = "p.price ASC, p.id ASC";
+  if (sort === "price_desc") orderBy = "p.price DESC, p.id ASC";
 
   const offset = (page - 1) * perPage;
 

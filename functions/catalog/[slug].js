@@ -34,7 +34,9 @@ async function cached(context, render, opts = {}) {
   const url = new URL(request.url);
   const cache = caches.default;
   let query = '';
-  if (opts.keyQuery) {
+  if (opts.keyFn) {
+    query = opts.keyFn(url);
+  } else if (opts.keyQuery) {
     const sp = new URLSearchParams(url.searchParams);
     sp.sort();
     const s = sp.toString();
@@ -92,10 +94,24 @@ async function cached(context, render, opts = {}) {
   });
 }
 
+function parsePageParam(url) {
+  const p = parseInt(url.searchParams.get('page') || '1', 10);
+  return Number.isFinite(p) && p > 1 ? Math.min(p, 5000) : 1;
+}
+
+function pageKey(url) {
+  const p = parsePageParam(url);
+  return p > 1 ? '?page=' + p : '';
+}
+
+function renderPageNotFound() {
+  return '<!DOCTYPE html>\n<html lang="uk"><head><meta charset="UTF-8"><title>Сторінку не знайдено — Ощадний Кошик</title><link rel="icon" type="image/png" href="/icon-192.png"></head>\n<body style="font-family:sans-serif;padding:60px;text-align:center;">\n  <h1>Такої сторінки немає</h1>\n  <p><a href="/katalog">← До каталогу</a> · <a href="/">На головну</a></p>\n</body></html>';
+}
+
 export async function onRequestGet(context) {
   // SSR цієї сторінки не залежить від query-параметрів (фільтри/сторінки підтягує клієнтський JS
   // через /api/catalog/:slug), тому ключ кешу — лише шлях.
-  return cached(context, renderCategoryPage, { ttl: 600, errorBody: `<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Тимчасово недоступно — Ощадний Кошик</title></head><body style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px"><h1>Сторінка тимчасово недоступна</h1><p>Ми вже працюємо над цим. Спробуйте оновити сторінку за кілька хвилин або <a href="/">поверніться на головну</a>.</p></body></html>`, errorType: 'text/html; charset=utf-8' });
+  return cached(context, renderCategoryPage, { ttl: 600, keyFn: pageKey, errorBody: `<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Тимчасово недоступно — Ощадний Кошик</title></head><body style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px"><h1>Сторінка тимчасово недоступна</h1><p>Ми вже працюємо над цим. Спробуйте оновити сторінку за кілька хвилин або <a href="/">поверніться на головну</a>.</p></body></html>`, errorType: 'text/html; charset=utf-8' });
 }
 
 async function renderCategoryPage(context) {
@@ -117,7 +133,14 @@ async function renderCategoryPage(context) {
   const icon = CATEGORY_ICONS[category.slug] || "🛒";
   const isClothing = category.slug === "odyah" || category.slug === "vzuttya";
 
-  const initial = await queryCatalog(env.koshyk_db, category, defaultCatalogFilters(), slug);
+  const pageNum = parsePageParam(new URL(context.request.url));
+  const initial = await queryCatalog(env.koshyk_db, category, { ...defaultCatalogFilters(), page: pageNum }, slug);
+  if (pageNum > 1 && initial.products.length === 0) {
+    return new Response(renderPageNotFound(), {
+      status: 404,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
 
   return new Response(renderPage(category.slug, category.name_uk, icon, isClothing, initial, category.seo_text), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -168,12 +191,19 @@ function renderPage(slug, nameUk, icon, isClothing, initial, seoText) {
       "@type": "ItemList",
       itemListElement: initial.products.map((p, i) => ({
         "@type": "ListItem",
-        position: i + 1,
+        position: i + 1 + ((initial.page || 1) - 1) * (initial.perPage || 24),
         url: `${SITE_URL}/product/${p.slug}`,
       })),
     });
   }
 
+  const curPage = initial.page || 1;
+  const pageSuffix = curPage > 1 ? " — сторінка " + curPage : "";
+  const pageUrl = curPage > 1 ? categoryUrl + "?page=" + curPage : categoryUrl;
+  const metaDesc = curPage > 1
+    ? nameUk + ": сторінка " + curPage + " з " + initial.totalPages + " в інтернет-магазині Ощадний Кошик."
+    : description;
+  const seoBlock = curPage > 1 ? "" : seoHtml;
   const showGenderGroup = isClothing && initial.facets.genders && initial.facets.genders.length > 0;
   const showBrandGroup = initial.facets.brands && initial.facets.brands.length > 0;
 
@@ -183,14 +213,14 @@ function renderPage(slug, nameUk, icon, isClothing, initial, seoText) {
 <meta charset="UTF-8">
 <script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${nameUk} — Ощадний Кошик</title>
-<meta name="description" content="${description}">
-<link rel="canonical" href="${categoryUrl}">
+<title>${nameUk}${pageSuffix} — Ощадний Кошик</title>
+<meta name="description" content="${metaDesc}">
+<link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ощадний Кошик">
 <meta property="og:title" content="${nameUk} — Ощадний Кошик">
 <meta property="og:description" content="${description}">
-<meta property="og:url" content="${categoryUrl}">
+<meta property="og:url" content="${pageUrl}">
 <meta property="og:image" content="${SITE_URL}/og-share.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="${SITE_URL}/og-share.png">
@@ -367,7 +397,7 @@ ${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</sc
 ${sharedCss()}
 </style>
 </head>
-<body data-slug="${slug}" data-clothing="${isClothing ? "1" : "0"}">
+<body data-slug="${slug}" data-clothing="${isClothing ? "1" : "0"}" data-page="${initial.page || 1}">
 
 <header>
   <div class="wrap header-row">
@@ -459,11 +489,11 @@ ${sharedCss()}
 
     <div class="grid" id="productGrid">${initial.products.length ? initial.products.map((p) => productCardHtml(p, icon)).join("\n") : '<div class="empty">Товарів за цими фільтрами не знайдено.</div>'}</div>
 
-    <div class="pagination" id="pagination">${paginationHtml(initial.page, initial.totalPages)}</div>
+    <div class="pagination" id="pagination">${paginationHtml(initial.page, initial.totalPages, "/catalog/" + slug)}</div>
   </main>
 </div>
 
-${seoHtml}
+${seoBlock}
 <footer>
   <div class="wrap foot-row">
     <span>© 2026 Ощадний Кошик · koshyk.pp.ua</span>
@@ -519,14 +549,24 @@ function productCardHtml(p, icon) {
   return `<a class="${cardClass}" href="/product/${encodeURIComponent(p.slug)}">${thumb}<div class="product-name">${escapeHtml(p.name)}</div>${meta ? `<div class="product-meta">${escapeHtml(meta)}</div>` : ""}<div class="product-price">${Number(p.price).toFixed(2)} ₴</div>${badge}</a>`;
 }
 
-function paginationHtml(page, totalPages) {
+function paginationHtml(page, totalPages, basePath) {
   if (totalPages <= 1) return "";
-  const start = Math.max(1, page - 2);
-  const end = Math.min(totalPages, start + 4);
+  const href = (n) => (n > 1 ? basePath + "?page=" + n : basePath);
+  const link = (n, label) => '<a class="page-btn" href="' + href(n) + '" data-page="' + n + '">' + label + '</a>';
+  const nums = new Set([1, totalPages]);
+  for (let i = page - 2; i <= page + 2; i++) if (i >= 1 && i <= totalPages) nums.add(i);
+  const list = Array.from(nums).sort((a, b) => a - b);
   let html = "";
-  for (let i = start; i <= end; i++) {
-    html += `<button class="page-btn${i === page ? " active" : ""}" data-page="${i}">${i}</button>`;
-  }
+  if (page > 1) html += link(page - 1, "‹");
+  let prev = 0;
+  list.forEach(function (n) {
+    if (n - prev > 1) html += '<span class="page-gap">…</span>';
+    html += n === page
+      ? '<span class="page-btn active" aria-current="page" data-page="' + n + '">' + n + "</span>"
+      : link(n, String(n));
+    prev = n;
+  });
+  if (page < totalPages) html += link(page + 1, "›");
   return html;
 }
 
@@ -638,6 +678,8 @@ function sharedCss() {
   footer { padding: 40px 0; border-top: 2px solid var(--line); margin-top: 20px; }
   .foot-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 0.86rem; color: var(--ink-soft); }
 
+  .page-btn { display: inline-block; text-decoration: none; }
+  .page-gap { padding: 8px 4px; color: var(--ink-soft); }
   .cat-seo { max-width: 860px; padding-bottom: 50px; }
   .cat-seo h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
   .cat-seo p { color: var(--ink-soft); font-size: 0.94rem; margin-bottom: 10px; }
@@ -670,7 +712,7 @@ function clientJs(icon) {
   // пагінація) — тому на старті НЕ робимо fetch, а одразу навішуємо
   // обробники на вже наявну розмітку. Наступні fetchData() (зміна
   // фільтрів/сторінки/сортування) працюють як і раніше.
-  var state = { brands: [], minPrice: null, maxPrice: null, gender: null, sort: "name", page: 1, inStockOnly: false, perPage: 24 };
+  var state = { brands: [], minPrice: null, maxPrice: null, gender: null, sort: "name", page: parseInt(document.body.dataset.page || "1", 10) || 1, inStockOnly: false, perPage: 24 };
   var facetsLoaded = true;
 
   var grid = document.getElementById("productGrid");
@@ -753,7 +795,8 @@ function clientJs(icon) {
 
   function bindPaginationButtons() {
     Array.prototype.forEach.call(pagination.querySelectorAll(".page-btn"), function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
         state.page = parseInt(btn.dataset.page, 10);
         fetchData();
         window.scrollTo({ top: 0, behavior: "smooth" });
