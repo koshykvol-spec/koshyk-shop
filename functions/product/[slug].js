@@ -203,7 +203,9 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
     "@type": "Product",
     name: p.name,
     sku: p.sku,
-    ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
+    ...(p.brand
+      ? { brand: { "@type": "Brand", name: p.brand } }
+      : { additionalProperty: [{ "@type": "PropertyValue", name: "identifier_exists", value: "no" }] }),
     ...(absImageUrl ? { image: [absImageUrl] } : {}),
     ...(p.description ? { description: mdToPlain(p.description) } : {}),
     url: productUrl,
