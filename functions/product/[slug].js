@@ -155,7 +155,7 @@ async function renderProduct(context) {
 
   // контактні дані для блоку доставки — з site_settings (заповнюються в /admin/settings)
   const { results: settingsRows } = await env.koshyk_db
-    .prepare("SELECT key, value FROM site_settings WHERE key IN ('store_phone', 'store_address')")
+    .prepare("SELECT key, value FROM site_settings WHERE key IN ('store_phone', 'store_address', 'seo_return_days', 'seo_ship_cost')")
     .all();
   const settings = {};
   settingsRows.forEach((r) => { settings[r.key] = r.value; });
@@ -192,6 +192,12 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
     ? mdToPlain(p.description).slice(0, 160)
     : `${p.name} — ${Number(p.price).toFixed(2)} ₴. Купити в Ощадному Кошику.`;
 
+  // Політика повернення і доставки для Merchant listings (значення з /admin/settings,
+  // ключі seo_return_days / seo_ship_cost; дефолт — 14 днів і 0 грн).
+  const returnDays = parseInt(settings.seo_return_days, 10) > 0 ? parseInt(settings.seo_return_days, 10) : 14;
+  let shipCost = parseFloat(String(settings.seo_ship_cost == null ? "" : settings.seo_ship_cost).replace(",", "."));
+  if (isNaN(shipCost) || shipCost < 0) shipCost = 0;
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -209,6 +215,24 @@ function renderPage(p, attrs, icon, related, images, reviews, avgRating, reviewC
       availability: p.in_stock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "UA",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: returnDays,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
+      },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: { "@type": "MonetaryAmount", value: shipCost, currency: "UAH" },
+        shippingDestination: { "@type": "DefinedRegion", addressCountry: "UA" },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
+          transitTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+        },
+      },
     },
     ...(reviewCount > 0
       ? {
