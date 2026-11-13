@@ -1,6 +1,13 @@
 // GET /admin/brands — масова заливка поля brand за пошуком ключових
 // слів-брендів у назві товару (напр. "Бейдж Axent (4501)" -> Axent).
-// POST /admin/brands — вивантаження товарів без бренду у JSON.
+// POST /admin/brands — вивантаження товарів у JSON:
+//   { category, mode: "unbranded" } — товари без бренду (за замовчуванням)
+//   { category, mode: "none" }      — товари з брендом «БЕЗ БРЕНДУ»
+//
+// Формат запису бренду в списку: "Основна назва|аліас1|аліас2".
+// Шукається будь-який варіант, а в базу пишеться основна назва.
+
+const NO_BRAND = "БЕЗ БРЕНДУ";
 
 export async function onRequestGet(context) {
   const { env } = context;
@@ -19,18 +26,27 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     const category = body.category || null;
+    const mode = body.mode === "none" ? "none" : "unbranded";
 
-    const { results } = await env.koshyk_db
-      .prepare(
-        `SELECT p.id, p.sku, p.name, c.slug AS category_slug
-         FROM products p
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE (p.brand IS NULL OR TRIM(p.brand) = '')
-           AND (?1 IS NULL OR c.slug = ?1)
-         ORDER BY p.name ASC`
-      )
-      .bind(category)
-      .all();
+    const brandCond =
+      mode === "none"
+        ? "p.brand = ?2"
+        : "(p.brand IS NULL OR TRIM(p.brand) = '')";
+    const extraField = mode === "none" ? ", p.brand" : "";
+
+    const stmt = env.koshyk_db.prepare(
+      `SELECT p.id, p.sku, p.name${extraField}, c.slug AS category_slug
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE ${brandCond}
+         AND (?1 IS NULL OR c.slug = ?1)
+       ORDER BY p.name ASC`
+    );
+
+    const { results } = await (mode === "none"
+      ? stmt.bind(category, NO_BRAND)
+      : stmt.bind(category)
+    ).all();
 
     return new Response(
       JSON.stringify({ ok: true, count: results.length, products: results }),
@@ -45,7 +61,7 @@ export async function onRequestPost(context) {
 }
 
 const DEFAULT_BRANDS =
-  "1 Вересня, 4Office, Aihao, AirFresh, Alerus, Always, Андрекс, Аполлон, ARIEL, ARKO, Axent, BIC, BioBlysk, BLAND-A-MED, Booba, Bourgeois, Buromax, Camelion, Centropen, Chante Clair, Class, Color-It, Colorit, COLGATE, Comely, Conte, Devil, Discreet, Doobl, Duracell, DURU, Economix, Economy Line, ELIZABETH, Empire, ENERLIGHT, Energizer, Fairy, FAX, Flair, Flambo, Formil, Fresh, G-Toys, Gilette, GP, Grundwald, HIPER, Horse, Intertool, Josef, Josef Otten, Josefotten, Joyko, KRADEO, Kotex, Kret, Lady Cotton, Leader, Liora, Ludwik, Marco, Mildy, Modern Family, Mr Helper, NATURELLA, Nature, Neo Line, Old Spice, Olis, ORKEY, Pentonic, Piano, Piknik, Polly, ProDom, Rablex, Radius, Rapira, Romar, SAMA, Sany, SAVO, SANINO, Septima, SKY Wind, Sleepy, SOLLA, Stenson, Tytan, UOMO, Valsar, VARTA, Videx, Vivat, Washkonig, WINSO, Yes, Zibi, Zinger, Zella, Авто-майстер, АРКО, Барвінок, Бері, Блискавка, Віват, Венец, Відекс, Гамма, ГалТерра, Глорія, Горизонт, Данко, Добрий, Друг, Економікс, Експерт, Житомир, Злато Трав, Зінгер, Каваті, Кармеліта, Кохавинка, Корвина, Лідер, Лідер-канц, Мандарин, Молдова, МультиПульти, Норма, Парус, Пегас, Персолька, Подолянка, Прелесть, Прелесна, Радуга, Рапіра, Рушничок, Рюкзачок, Світ Поздоровлень, Сила, Талант, Технок, Творчість, Умка, Фенікс, Фея, Фітодоктор, Чистий дім, Шарм, Школярик";
+  "1 Вересня, 4Office|4Oficce|4-Oficce, Aihao, AirFresh, Alerus, Always, Андрекс, Аполлон, ARIEL, ARKO, Axent, BIC, BioBlysk, BLAND-A-MED, Booba, Bourgeois, Buromax, Camelion, Centropen, Chante Clair, Class, Color-It, Colorit, COLGATE, Comely, Conte, Devil, Discreet, Doobl, Duracell, DURU, Economix, Economy Line, ELIZABETH, Empire, ENERLIGHT, Energizer, Fairy, FAX, Flair, Flambo, Formil, Fresh, G-Toys, Gilette|Giliette, GP, Grundwald, HIPER, Horse, Intertool, Josef, Josef Otten|Josefonten|Joseff, Josefotten, Joyko, KRADEO, Kotex, Kret, Lady Cotton, Leader, Liora, Ludwik, Marco, Mildy, Modern Family, Mr Helper, NATURELLA, Nature, Neo Line, Old Spice|Old Spise, Olis, ORKEY, Pentonic, Piano, Piknik, Polly, ProDom|Продом, Rablex, Radius, Rapira, Romar, SAMA, Sany, SAVO, SANINO, Septima|Септіма, SKY Wind, Sleepy, SOLLA|Соллі, Stenson, Tytan, UOMO, Valsar, VARTA, Videx, Vivat, Washkonig, WINSO, Yes, Zibi, Zinger, Zella, Авто-майстер, АРКО, Барвінок, Бері, Блискавка, Віват, Венец, Відекс, Гамма, ГалТерра, Глорія, Горизонт, Данко, Добрий, Друг, Економікс, Експерт, Житомир, Злато Трав, Зінгер, Каваті, Кармеліта, Кохавинка, Корвина, Лідер, Лідер-канц, Мандарин, Молдова, МультиПульти, Норма, Парус, Пегас, Персолька, Подолянка, Прелесть, Прелесна, Радуга, Рапіра, Рушничок, Рюкзачок, Світ Поздоровлень, Сила, Талант, Технок, Творчість, Умка, Фенікс, Фея, Фітодоктор, Чистий дім, Шарм, Школярик, Яцута, КІП, М-ТЕКС, Sultani|Sultanі, Durex|Дюрекс, Уті-Путі, Незнайка, Пегашка, Маестро, Темінатор, Містер Кріт, Каченя, Експрес-удачі, Руслан, Промінь, Манго, Арніка, Оріон, Розалінда, Кузя, Юма, Токер, Щедро, МайГал, ЮлаМікс, Ледар БІС, Глобус, Спринтер, Бартон, Сілвер, Хосен, Дихло-Босс, Шик, Гриф, Вогник, Слава, Елегант, Дніпро, CHALE, CHARMMAN, ТЕО, Aqua Painter, Aqua baby, Glass, Утюг, LRI";
 
 function renderPage(categories) {
   const options = categories.map((c) => `<option value="${c.slug}">${escapeHtml(c.name_uk)}</option>`).join("");
@@ -59,7 +75,6 @@ function renderPage(categories) {
 <link rel="icon" type="image/png" href="/icon-192.png">
 <style>
 /* Локальні шрифти замість Google Fonts CDN для адмінки */
-
 /* ---- Fraunces (заголовки; латиниця — кирилиця в шрифті відсутня) ---- */
 @font-face {
   font-family: 'Fraunces';
@@ -201,7 +216,6 @@ function renderPage(categories) {
   src: url("/fonts/admin/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
-
 </style>
 <style>${css()}</style>
 </head>
@@ -229,6 +243,7 @@ function renderPage(categories) {
   <p class="lede">
     Шукає перелічені бренди як окреме слово в назві товару (напр. «Бейдж <b>Axent</b> (4501)» → бренд «Axent»)
     і проставляє поле «Бренд». Реєстр не важливий. Перший бренд зі списку, що знайдеться в назві — переможець.
+    Для написань з помилками або іншою мовою додайте аліаси через <b>|</b>: «Old Spice|Old Spise».
   </p>
 
   <div class="panel">
@@ -249,6 +264,7 @@ function renderPage(categories) {
       </label>
       <div class="export-actions">
         <button type="button" class="btn-secondary btn-sm" id="showJsonBtn">JSON без бренду</button>
+        <button type="button" class="btn-secondary btn-sm" id="showNoBrandBtn">JSON «${NO_BRAND}»</button>
         <button type="button" class="btn-secondary btn-sm" id="downloadJsonBtn">Завантажити .json</button>
       </div>
     </div>
@@ -298,17 +314,17 @@ function clientJs() {
       .filter(Boolean);
   }
 
-  function fetchUnbrandedProducts() {
+  // mode: "unbranded" — без бренду, "none" — з брендом «БЕЗ БРЕНДУ»
+  function fetchProducts(mode) {
     var category = document.getElementById("categorySelect").value || null;
     return fetch("/admin/brands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: category }),
+      body: JSON.stringify({ category: category, mode: mode }),
     }).then(function (r) { return r.json(); });
   }
 
-  document.getElementById("showJsonBtn").addEventListener("click", function () {
-    var btn = this;
+  function showJson(btn, mode) {
     var box = document.getElementById("jsonBox");
     var status = document.getElementById("jsonStatus");
     var output = document.getElementById("jsonOutput");
@@ -318,7 +334,7 @@ function clientJs() {
     status.className = "hint-text";
     status.textContent = "Завантаження…";
 
-    fetchUnbrandedProducts()
+    fetchProducts(mode)
       .then(function (data) {
         btn.disabled = false;
         if (!data.ok) {
@@ -327,7 +343,8 @@ function clientJs() {
           output.value = "";
           return;
         }
-        status.innerHTML = "Товарів без бренду: <b>" + data.count + "</b>";
+        var label = mode === "none" ? "Товарів «${NO_BRAND}»: " : "Товарів без бренду: ";
+        status.innerHTML = label + "<b>" + data.count + "</b>";
         output.value = JSON.stringify(data.products, null, 2);
       })
       .catch(function () {
@@ -335,13 +352,21 @@ function clientJs() {
         status.className = "hint-text error";
         status.textContent = "Помилка з\\'єднання";
       });
+  }
+
+  document.getElementById("showJsonBtn").addEventListener("click", function () {
+    showJson(this, "unbranded");
+  });
+
+  document.getElementById("showNoBrandBtn").addEventListener("click", function () {
+    showJson(this, "none");
   });
 
   document.getElementById("downloadJsonBtn").addEventListener("click", function () {
     var btn = this;
     btn.disabled = true;
 
-    fetchUnbrandedProducts()
+    fetchProducts("unbranded")
       .then(function (data) {
         btn.disabled = false;
         if (!data.ok) {
