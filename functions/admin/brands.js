@@ -1,5 +1,6 @@
 // GET /admin/brands — масова заливка поля brand за пошуком ключових
 // слів-брендів у назві товару (напр. "Бейдж Axent (4501)" -> Axent).
+// POST /admin/brands — вивантаження товарів без бренду у JSON.
 
 export async function onRequestGet(context) {
   const { env } = context;
@@ -10,6 +11,36 @@ export async function onRequestGet(context) {
   return new Response(renderPage(categories), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
+  try {
+    const body = await request.json();
+    const category = body.category || null;
+
+    const { results } = await env.koshyk_db
+      .prepare(
+        `SELECT id, sku, name, category_slug
+         FROM products
+         WHERE (brand IS NULL OR TRIM(brand) = '')
+           AND (?1 IS NULL OR category_slug = ?1)
+         ORDER BY name ASC`
+      )
+      .bind(category)
+      .all();
+
+    return new Response(
+      JSON.stringify({ ok: true, count: results.length, products: results }),
+      { headers: { "Content-Type": "application/json; charset=utf-8" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: err.message || "Помилка запиту до БД" }),
+      { status: 500, headers: { "Content-Type": "application/json; charset=utf-8" } }
+    );
+  }
 }
 
 const DEFAULT_BRANDS =
@@ -215,6 +246,18 @@ function renderPage(categories) {
         <input type="checkbox" id="onlyEmpty" checked>
         Тільки товари без бренду
       </label>
+      <div class="export-actions">
+        <button type="button" class="btn-secondary btn-sm" id="showJsonBtn">JSON без бренду</button>
+        <button type="button" class="btn-secondary btn-sm" id="downloadJsonBtn">Завантажити .json</button>
+      </div>
+    </div>
+
+    <div id="jsonBox" class="json-box" style="display: none;">
+      <div class="json-bar">
+        <span id="jsonStatus" class="hint-text"></span>
+        <button type="button" class="btn-secondary btn-sm" id="copyJsonBtn">Копіювати JSON</button>
+      </div>
+      <textarea id="jsonOutput" class="json-textarea" readonly></textarea>
     </div>
   </div>
 
@@ -253,6 +296,80 @@ function clientJs() {
       .map(function (s) { return s.trim(); })
       .filter(Boolean);
   }
+
+  function fetchUnbrandedProducts() {
+    var category = document.getElementById("categorySelect").value || null;
+    return fetch("/admin/brands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: category }),
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.getElementById("showJsonBtn").addEventListener("click", function () {
+    var btn = this;
+    var box = document.getElementById("jsonBox");
+    var status = document.getElementById("jsonStatus");
+    var output = document.getElementById("jsonOutput");
+
+    btn.disabled = true;
+    box.style.display = "block";
+    status.className = "hint-text";
+    status.textContent = "Завантаження…";
+
+    fetchUnbrandedProducts()
+      .then(function (data) {
+        btn.disabled = false;
+        if (!data.ok) {
+          status.className = "hint-text error";
+          status.textContent = data.error || "Помилка";
+          output.value = "";
+          return;
+        }
+        status.innerHTML = "Товарів без бренду: <b>" + data.count + "</b>";
+        output.value = JSON.stringify(data.products, null, 2);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        status.className = "hint-text error";
+        status.textContent = "Помилка з\\'єднання";
+      });
+  });
+
+  document.getElementById("downloadJsonBtn").addEventListener("click", function () {
+    var btn = this;
+    btn.disabled = true;
+
+    fetchUnbrandedProducts()
+      .then(function (data) {
+        btn.disabled = false;
+        if (!data.ok) {
+          alert(data.error || "Помилка вивантаження");
+          return;
+        }
+        var blob = new Blob([JSON.stringify(data.products, null, 2)], { type: "application/json;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        var cat = document.getElementById("categorySelect").value || "all";
+        a.href = url;
+        a.download = "unbranded-" + cat + "-" + new Date().toISOString().slice(0, 10) + ".json";
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        alert("Помилка з\\'єднання");
+      });
+  });
+
+  document.getElementById("copyJsonBtn").addEventListener("click", function () {
+    var output = document.getElementById("jsonOutput");
+    if (!output.value) return;
+    navigator.clipboard.writeText(output.value);
+    var btn = this;
+    btn.textContent = "Скопійовано ✓";
+    setTimeout(function () { btn.textContent = "Копіювати JSON"; }, 1500);
+  });
 
   document.getElementById("previewBtn").addEventListener("click", function () {
     var brands = parseBrands();
@@ -367,13 +484,18 @@ function css() {
   .filter-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .filter-row select { padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); font-size: 0.86rem; }
   .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--ink-soft); cursor: pointer; }
+  .export-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+  .json-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .json-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
+  .json-textarea { width: 100%; min-height: 140px; padding: 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; resize: vertical; }
   .step-actions { display: flex; gap: 10px; margin-bottom: 16px; }
   .btn-primary, .btn-secondary { padding: 11px 20px; border-radius: 100px; font-weight: 700; font-size: 0.88rem; cursor: pointer; border: none; }
   .btn-secondary { background: var(--paper); color: var(--ink); border: 1.5px solid var(--line); }
-  .btn-secondary:hover { border-color: var(--ink); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--ink); }
   .btn-primary { background: var(--green); color: var(--card); }
   .btn-primary:hover:not(:disabled) { background: var(--green-deep); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
   .hint-text { color: var(--ink-soft); font-size: 0.86rem; }
   .hint-text.error { color: var(--red-deep); font-weight: 600; }
   .hint-text.success { color: var(--green-deep); font-weight: 700; }
