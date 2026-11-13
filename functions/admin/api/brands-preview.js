@@ -1,5 +1,8 @@
 // POST /admin/api/brands-preview
-// { category, brands: ["Axent", "4Office", ...], onlyEmpty }
+// { category, brands: ["Axent", "Old Spice|Old Spise", ...], onlyEmpty }
+//
+// Формат запису бренду: "Основна назва|аліас1|аліас2".
+// Шукаємо будь-який із варіантів, а в результат пишемо основну назву.
 //
 // Матчинг: для кожного бренду шукаємо його як ОКРЕМЕ слово в назві
 // (не підрядок будь-де — інакше "Piano" зловить "Pianoforte" тощо).
@@ -42,15 +45,28 @@ export async function onRequestPost(context) {
     .bind(...bindings)
     .all();
 
-  const patterns = brands.map((b) => ({
-    brand: b,
-    // необов'язковий пробіл між цифрою і буквою всередині бренду:
-    // "4Office" так само зловить "4 Office" (реальний варіант написання в даних)
-    regex: new RegExp(
-      `(^|[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9])${escapeRegex(b).replace(/(\d)([A-Za-z])/g, "$1\\s?$2")}([^A-Za-zА-Яа-яІіЇїЄєҐґ0-9]|$)`,
-      "i"
-    ),
-  }));
+  const BOUND = "[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9]";
+
+  const patterns = brands.map((entry) => {
+    // "Old Spice|Old Spise" → canonical = "Old Spice", варіанти = обидва
+    const variants = String(entry)
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const canonical = variants[0];
+
+    const alt = variants
+      .map((v) =>
+        // необов'язковий пробіл між цифрою і буквою: "4Office" ловить і "4 Office"
+        escapeRegex(v).replace(/(\d)([A-Za-z])/g, "$1\\s?$2")
+      )
+      .join("|");
+
+    return {
+      brand: canonical,
+      regex: new RegExp(`(^|${BOUND})(?:${alt})(${BOUND}|$)`, "i"),
+    };
+  });
 
   const rows = [];
   for (const p of products) {
