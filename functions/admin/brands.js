@@ -22,11 +22,12 @@ export async function onRequestPost(context) {
 
     const { results } = await env.koshyk_db
       .prepare(
-        `SELECT id, sku, name, category_slug
-         FROM products
-         WHERE (brand IS NULL OR TRIM(brand) = '')
-           AND (?1 IS NULL OR category_slug = ?1)
-         ORDER BY name ASC`
+        `SELECT p.id, p.sku, p.name, c.slug AS category_slug
+         FROM products p
+         LEFT JOIN categories c ON c.id = p.category_id
+         WHERE (p.brand IS NULL OR TRIM(p.brand) = '')
+           AND (?1 IS NULL OR c.slug = ?1)
+         ORDER BY p.name ASC`
       )
       .bind(category)
       .all();
