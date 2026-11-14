@@ -104,7 +104,7 @@ function shorten(text, max) {
 function buildCaption(p, categoryName, description) {
   const lines = [`🛍 ${p.name}`];
   if (description) lines.push('', shorten(description, MAX_DESC_CHARS));
-  else if (p.brand) lines.push(`Бренд: ${p.brand}`);
+  else if (p.brand && p.brand.trim().toUpperCase() !== "БЕЗ БРЕНДУ") lines.push(`Бренд: ${p.brand}`);
   lines.push('', `💰 Ціна: ${p.price} грн`, `📍 Категорія: ${categoryName}`, `🛒 Купити: ${SITE}/product/${p.slug}`);
   return lines.join('\n');
 }
