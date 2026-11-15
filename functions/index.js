@@ -33,6 +33,10 @@ const DEFAULT_ABOUT =
 // виконує 3 важкі D1-запити (заголовок s-maxage сам по собі кеш не вмикає,
 // бо Pages Function виконується перед кешем).
 const HOME_CACHE_TTL = 3600; // секунд (було 600: підрахунок категорій сканує всю таблицю products, ≈2,5 тис. рядків × 2 запити)
+// Версія розмітки головної. Входить у ключ кешу, тому після деплою зі зміненою
+// версією старий кеш ігнорується й сторінка одразу будується заново.
+// ЗМІНЮЙТЕ це значення щоразу, коли правите HTML/CSS головної (напр. "2026-11-15-ny2").
+const HOME_CACHE_VERSION = "2026-11-15-ny1";
 
 // Кеш через Cache API + захист від збоїв D1.
 // Pages Function виконується ПЕРЕД CDN-кешем, тому самого Cache-Control недостатньо.
@@ -47,7 +51,7 @@ async function cached(context, render, opts = {}) {
   if (request.method !== 'GET') return render(context);
   const url = new URL(request.url);
   const cache = caches.default;
-  const key = new Request(url.origin + url.pathname);
+  const key = new Request(url.origin + '/__v' + HOME_CACHE_VERSION + url.pathname);
   const staleKey = new Request(url.origin + '/__stale' + url.pathname);
   const useCache = !opts.skipCache;
 
