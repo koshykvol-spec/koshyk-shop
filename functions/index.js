@@ -166,6 +166,14 @@ async function renderHome(context) {
   });
 }
 
+// Новорічний банер показується з 15 листопада до 20 січня (серверно, без JS).
+function isNewYearSeason() {
+  const d = new Date();
+  const m = d.getUTCMonth(); // 0 = січень
+  const day = d.getUTCDate();
+  return (m === 10 && day >= 15) || m === 11 || (m === 0 && day <= 20);
+}
+
 function renderPage({ categories, totals, site, newArrivals }) {
   const fmt = (n) => Number(n || 0).toLocaleString("uk-UA");
   const price = (n) => (n == null ? "0.00" : Number(n).toFixed(2));
@@ -320,6 +328,19 @@ ${jsonLd.map((obj) => `<script type="application/ld+json">${safeJsonLd(obj)}</sc
     <p><b id="heroCount">${fmt(totalInStock)} товарів</b> в наявності просто зараз · ${categoryCount} категорій · ціни від <b>${price(totals.min_price)} \u20b4</b> · без прихованих націнок</p>
   </div>
 </section>
+
+${isNewYearSeason() ? `<section class="ny-section">
+  <div class="wrap">
+    <a class="ny-banner" href="/search?q=%D0%BD%D0%BE%D0%B2%D0%BE%D1%80%D1%96%D1%87%D0%BD">
+      <span class="ny-emoji" aria-hidden="true">🎄</span>
+      <span class="ny-text">
+        <strong>Новорічні іграшки та прикраси</strong>
+        <small>Ялинкові кульки, гірлянди, декор — встигніть до свят</small>
+      </span>
+      <span class="ny-cta">Дивитись →</span>
+    </a>
+  </div>
+</section>` : ""}
 
 <section class="categories" id="categories">
   <div class="wrap">
@@ -724,10 +745,31 @@ function css() {
   .footer-col .contact-line b { color: var(--ink); }
   .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.84rem; color: var(--ink-soft); font-weight: 600; }
 
+  /* ---------- NEW YEAR BANNER ---------- */
+  .ny-section { padding: 4px 0 8px; }
+  .ny-banner {
+    display: flex; align-items: center; gap: 16px; padding: 18px 24px;
+    border-radius: var(--radius-lg); color: #fff;
+    background: linear-gradient(135deg, var(--purple), var(--coral));
+    box-shadow: 0 0 28px -6px var(--purple);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ny-banner:hover { transform: translateY(-3px); box-shadow: 0 0 36px -4px var(--coral); }
+  .ny-emoji { font-size: 2.4rem; line-height: 1; }
+  .ny-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .ny-text strong { font-family: 'Baloo 2', sans-serif; font-size: 1.25rem; font-weight: 800; }
+  .ny-text small { font-size: 0.9rem; font-weight: 600; opacity: 0.92; }
+  .ny-cta { font-weight: 800; white-space: nowrap; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 100px; }
+
   @media (max-width: 880px) {
     .header-row { flex-wrap: nowrap; }
     nav a:not(.cart-link) { display: none; }
     .header-search { margin: 0 8px; }
+    .ny-banner { padding: 14px 16px; gap: 12px; }
+    .ny-emoji { font-size: 1.9rem; }
+    .ny-text strong { font-size: 1.05rem; }
+    .ny-text small { display: none; }
+    .ny-cta { padding: 6px 12px; }
     .cat-grid { grid-template-columns: repeat(2, 1fr); }
     .new-grid { grid-template-columns: repeat(2, 1fr); }
     .footer-content { grid-template-columns: 1fr; }
