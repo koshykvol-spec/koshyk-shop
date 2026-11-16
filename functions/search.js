@@ -19,6 +19,7 @@ function renderPage(initialQuery) {
 <script>(function(){try{if(localStorage.getItem("koshykTheme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${initialQuery ? `Пошук: ${escapeHtml(initialQuery)}` : "Пошук"} — Ощадний Кошик</title>
+<meta name="robots" content="noindex,follow">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#1E202E">

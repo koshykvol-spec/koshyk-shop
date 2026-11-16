@@ -234,7 +234,8 @@ describe('robots.txt', () => {
       assert.ok(!g.disallow.includes('/'), `robots.txt закриває весь сайт для ${g.agents.join(', ')} (Disallow: /)`);
     }
     const disallowed = mine.flatMap((g) => g.disallow).filter(Boolean);
-    for (const p of ['/admin', '/search']) {
+    // /search свідомо НЕ закритий у robots.txt: Google має зайти й побачити <meta robots noindex>
+    for (const p of ['/admin']) {
       assert.ok(disallowed.includes(p), `${p} має бути закритий для * (Disallow: ${p})`);
     }
     for (const p of ['/product/x', '/catalog/x', '/katalog', '/img/x.webp', '/fonts/x.woff2', '/theme.js', '/cart.js', '/og-share.png']) {
@@ -498,13 +499,14 @@ describe('унікальність метаданих', () => {
   });
 });
 
-describe('відомі прогалини (не валять прогін, поки не виправлено)', () => {
-  it('/search має <meta robots noindex>', {
-    todo: 'зараз закрито лише в robots.txt; без noindex такий URL усе одно може потрапити в індекс як «URL без вмісту»',
-  }, async () => {
+describe('сторінка пошуку', () => {
+  it('/search має <meta robots noindex> і не закрита в robots.txt', async () => {
     const r = await get('/search?q=test');
     assert.equal(r.status, 200);
-    assert.match(meta(r.body, 'robots') || '', /noindex/i);
+    assert.match(meta(r.body, 'robots') || '', /noindex/i, 'без noindex URL пошуку потрапляє в індекс');
+    const robots = (await get('/robots.txt')).body;
+    assert.doesNotMatch(robots, /^\s*Disallow:\s*\/search\b/im,
+      'Disallow: /search у robots.txt заважає Google побачити noindex');
   });
 });
 
