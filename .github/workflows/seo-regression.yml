@@ -1,0 +1,46 @@
+name: SEO regression (Ощадний Кошик)
+on:
+  # щодня зранку за Києвом — ловить зміни в даних (D1) і сторонні збої без жодного коміту
+  schedule:
+    - cron: '17 4 * * *'
+  # після змін у коді сайту або в самих тестах
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'public/**'
+      - 'tests/seo/**'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Що перевіряти (прод або прев''ю-деплой Cloudflare Pages)'
+        default: 'https://koshyk.pp.ua'
+      sample:
+        description: 'Скільки товарів перевірити'
+        default: '15'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-regression
+  cancel-in-progress: true
+
+jobs:
+  seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Cloudflare Pages збирає й викочує деплой після пушу не миттєво
+      - name: Дочекатись деплою
+        if: github.event_name == 'push'
+        run: sleep 240
+      - name: SEO-тести
+        run: node --test --test-reporter=spec tests/seo/seo.test.mjs
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://koshyk.pp.ua' }}
+          SEO_SAMPLE: ${{ inputs.sample || '15' }}

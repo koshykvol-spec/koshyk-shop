@@ -1,0 +1,159 @@
+{
+  "note": "Еталон SEO-структури. Оновлюється: UPDATE_BASELINE=1 node --test tests/seo/seo.test.mjs",
+  "categories": [
+    "bizhuteriya",
+    "gospodarchi",
+    "himiya",
+    "igrashky",
+    "kanctovary",
+    "odyah",
+    "vzuttya"
+  ],
+  "counts": {
+    "products": 2242
+  },
+  "pages": {
+    "/": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "ItemList",
+        "Store",
+        "WebSite"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Ощадний Кошик — все для дому за копійки",
+      "description": "Канцтовари, господарчі товари, іграшки, одяг, хімія, біжутерія та взуття за найощадливішими цінами."
+    },
+    "/katalog": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/katalog",
+      "robots": "index,follow",
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [],
+      "ogType": null,
+      "hasOgImage": false,
+      "twitterCard": null,
+      "title": "Повний каталог товарів — Ощадний Кошик",
+      "description": "Повний перелік усіх товарів в наявності в Ощадному Кошику: канцтовари, господарчі товари, посуд, іграшки та інше."
+    },
+    "/catalog/kanctovary": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/kanctovary",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Канцтовари — Ощадний Кошик"
+    },
+    "/catalog/gospodarchi": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/gospodarchi",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Господарчі товари — Ощадний Кошик"
+    },
+    "/catalog/igrashky": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/igrashky",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Іграшки — Ощадний Кошик"
+    },
+    "/catalog/odyah": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/odyah",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Одяг — Ощадний Кошик"
+    },
+    "/catalog/himiya": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/himiya",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Хімія — Ощадний Кошик"
+    },
+    "/catalog/bizhuteriya": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/bizhuteriya",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Біжутерія — Ощадний Кошик"
+    },
+    "/catalog/vzuttya": {
+      "status": 200,
+      "canonical": "https://koshyk.pp.ua/catalog/vzuttya",
+      "robots": null,
+      "lang": "uk",
+      "h1Count": 1,
+      "ldTypes": [
+        "BreadcrumbList",
+        "CollectionPage",
+        "ItemList"
+      ],
+      "ogType": "website",
+      "hasOgImage": true,
+      "twitterCard": "summary_large_image",
+      "title": "Взуття — Ощадний Кошик"
+    }
+  }
+}
