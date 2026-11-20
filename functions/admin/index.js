@@ -235,6 +235,11 @@ function renderPage() {
         <span class="card-title">Масові дії</span>
         <span class="card-sub">Опис, SEO, ключові слова за шаблоном</span>
       </a>
+      <a class="admin-card" href="/admin/newproducts">
+        <span class="card-icon">🆕</span>
+        <span class="card-title">Нові товари</span>
+        <span class="card-sub">Опис + ключові слова + SEO одним проходом</span>
+      </a>
       <a class="admin-card" href="/admin/annotations">
         <span class="card-icon">🧺</span>
         <span class="card-title">Масова заливка</span>
