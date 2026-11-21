@@ -1,8 +1,9 @@
 // Тести /admin/newproducts на справжньому SQLite (node:sqlite, Node >= 22.5) із реальною схемою koshyk-db.
 //   node --test tests/admin/newproducts.test.mjs
 // Без мережі й без D1: невеличка обгортка імітує D1-API (prepare/bind/all/first/run/batch).
+// Інструмент заливає ЛИШЕ product_content.description (markdown): сайт читає тільки його.
 
-import { describe, it, before, beforeEach } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -37,18 +38,17 @@ function freshDb() {
 }
 
 const longDesc = 'Зручний зошит для щоденних записів. '.repeat(8).trim();
-const kw = 'зошит, зошит а5, зошит у клітинку, канцтовари, школа, навчання, записи';
 
 function seed(s) {
   const p = s.prepare('INSERT INTO products(sku,name,price,category_id,brand,in_stock) VALUES(?,?,?,?,?,?)');
-  p.run('00-1', 'Зошит 48 арк', 20, 1, 'Axent', 1);            // id1: без тексту
-  p.run('00-2', 'Ручка кулькова синя', 10, 1, '', 1);          // id2: є опис, без keywords/meta
-  p.run('00-3', 'Фломастери 12 кол', 50, 1, 'Economix', 1);    // id3: усе заповнено
-  p.run('РТ-4', 'Майка для хлопчика 60', 90, 4, '', 0);        // id4: немає в наявності, без тексту
+  p.run('00-1', 'Зошит 48 арк', 20, 1, 'Axent', 1);            // id1: без рядка в product_content
+  p.run('00-2', 'Ручка кулькова синя', 10, 1, '', 1);          // id2: рядок є, опис порожній (є лише keywords)
+  p.run('00-3', 'Фломастери 12 кол', 50, 1, 'Economix', 1);    // id3: опис є
+  p.run('РТ-4', 'Майка для хлопчика 60', 90, 4, '', 0);        // id4: немає в наявності, без опису
   p.run('00-5', 'Дубль', 1, 1, '', 1);                          // id5, id6: однакова назва
   p.run('00-6', 'Дубль', 1, 1, '', 1);
-  s.prepare('INSERT INTO product_content(product_id,description,keywords,meta_description) VALUES(?,?,?,?)').run(2, 'Готовий опис ручки, який не можна затирати.', '', '');
-  s.prepare('INSERT INTO product_content(product_id,description,keywords,meta_description) VALUES(?,?,?,?)').run(3, longDesc, kw, 'Фломастери 12 кольорів. Купити в Ощадному Кошику.');
+  s.prepare('INSERT INTO product_content(product_id,keywords) VALUES(?,?)').run(2, 'ручка, синя');
+  s.prepare('INSERT INTO product_content(product_id,description) VALUES(?,?)').run(3, longDesc);
   s.prepare('INSERT INTO product_content(product_id,attributes_json) VALUES(?,?)').run(4, '{"gender":"хлопчик","size":"60"}');
 }
 
@@ -63,24 +63,20 @@ describe('/admin/newproducts: експорт', { skip }, () => {
   let s, db;
   beforeEach(() => { s = freshDb(); seed(s); db = makeD1(s); });
 
-  it('віддає лише товари з порожнім description/keywords/meta_description, у наявності першими, з need і total', async () => {
+  it('віддає лише товари з порожнім описом: у наявності першими, потім найновіші; total загальний', async () => {
     const res = await get(db, '?export=1');
     const items = await res.json();
     assert.equal(res.headers.get('x-total-remaining'), '5');
     assert.deepEqual(items.map(i => i.sku), ['00-6', '00-5', '00-2', '00-1', 'РТ-4']);
     assert.ok(!items.some(i => i.sku === '00-3'));
-    const pen = items.find(i => i.sku === '00-2');
-    assert.deepEqual(pen.need, ['keywords', 'meta_description']);
-    assert.equal(pen.description, 'Готовий опис ручки, який не можна затирати.');
-    assert.deepEqual(items.find(i => i.sku === '00-1').need, ['description', 'keywords', 'meta_description']);
   });
 
-  it('є категорія (укр. назва), бренд лише коли заданий, attributes з JSON; ціни немає', async () => {
+  it('є категорія (укр. назва), бренд лише коли заданий, attributes з JSON; ціни й поля need немає', async () => {
     const items = await (await get(db, '?export=1')).json();
     const a = items.find(i => i.sku === '00-1');
-    assert.equal(a.category, 'Канцтовари'); assert.equal(a.brand, 'Axent'); assert.ok(!('price' in a));
-    const m = items.find(i => i.sku === 'РТ-4');
-    assert.deepEqual(m.attributes, { gender: 'хлопчик', size: '60' });
+    assert.equal(a.category, 'Канцтовари'); assert.equal(a.brand, 'Axent');
+    assert.ok(!('price' in a)); assert.ok(!('need' in a));
+    assert.deepEqual(items.find(i => i.sku === 'РТ-4').attributes, { gender: 'хлопчик', size: '60' });
     assert.ok(!('brand' in items.find(i => i.sku === '00-2')));
   });
 
@@ -88,8 +84,7 @@ describe('/admin/newproducts: експорт', { skip }, () => {
     const r = await get(db, '?export=1&limit=2');
     assert.equal((await r.json()).length, 2);
     assert.equal(r.headers.get('x-total-remaining'), '5');
-    const c = await get(db, '?export=1&cat=odyah');
-    assert.deepEqual((await c.json()).map(i => i.sku), ['РТ-4']);
+    assert.deepEqual((await (await get(db, '?export=1&cat=odyah')).json()).map(i => i.sku), ['РТ-4']);
   });
 
   it('кривий attributes_json не ламає експорт', async () => {
@@ -104,45 +99,51 @@ describe('/admin/newproducts: заливка', { skip }, () => {
   beforeEach(() => { s = freshDb(); seed(s); db = makeD1(s); });
 
   it('dryrun нічого не пише', async () => {
-    const d = await (await post(db, [{ sku: '00-1', description: longDesc, keywords: kw, meta_description: 'Мета-опис для зошита.' }], '?dryrun=1')).json();
+    const d = await (await post(db, [{ sku: '00-1', description: longDesc }], '?dryrun=1')).json();
     assert.equal(d.willUpdate, 1); assert.equal(d.dryrun, true);
     assert.equal(row(s, 1), undefined);
   });
 
-  it('заповнює порожнє, НЕ перезаписує наявне; товар без рядка отримує його', async () => {
+  it('заповнює порожній опис (і для товару без рядка, і з рядком), НЕ перезаписує наявний; інші колонки не чіпає', async () => {
     const d = await (await post(db, [
-      { sku: '00-1', description: longDesc, keywords: kw, meta_description: 'Зошит 48 аркушів. Купити в Ощадному Кошику.' },
-      { sku: '00-2', description: 'ІНШИЙ опис, що має бути проігнорований', keywords: kw, meta_description: 'Ручка кулькова синя. Купити.' },
+      { sku: '00-1', description: longDesc },
+      { sku: '00-2', description: longDesc },
+      { sku: '00-3', description: 'ІНШИЙ опис, що має бути проігнорований' },
     ])).json();
-    assert.equal(d.willUpdate, 2);
-    assert.deepEqual({ ...d.kept }, { description: 1, keywords: 0, meta_description: 0 });
-    const r1 = row(s, 1); assert.equal(r1.description, longDesc); assert.equal(r1.keywords, kw); assert.ok(r1.seo_updated_at);
-    const r2 = row(s, 2);
-    assert.equal(r2.description, 'Готовий опис ручки, який не можна затирати.');
-    assert.equal(r2.keywords, kw); assert.match(r2.meta_description, /^Ручка/);
+    assert.equal(d.willUpdate, 2); assert.equal(d.kept, 1);
+    assert.equal(row(s, 1).description, longDesc); assert.ok(row(s, 1).seo_updated_at);
+    assert.equal(row(s, 2).description, longDesc); assert.equal(row(s, 2).keywords, 'ручка, синя');
+    assert.equal(row(s, 3).description, longDesc);
+    assert.equal(row(s, 3).seo_updated_at, null);
+    assert.equal(row(s, 1).keywords, null); assert.equal(row(s, 1).meta_description, null);
   });
 
-  it('SQL-захист: текст, що з’явився між перевіркою і заливкою, не затирається', async () => {
-    const wrapped = { ...db, prepare: sql => db.prepare(sql) };
-    // емулюємо гонку: після SELECT у POST хтось вписує опис товару 1
+  it('keywords/meta_* у відповіді LLM ігноруються: інструмент пише лише description', async () => {
+    const d = await (await post(db, [{ sku: '00-1', description: longDesc, keywords: 'a, b, c', meta_description: 'мета', meta_title: 'т' }])).json();
+    assert.equal(d.willUpdate, 1);
+    assert.equal(row(s, 1).keywords, null); assert.equal(row(s, 1).meta_description, null); assert.equal(row(s, 1).meta_title, null);
+    const only = await (await post(db, [{ sku: '00-2', keywords: 'тільки ключові', meta_description: 'тільки мета' }])).json();
+    assert.equal(only.empty, 1); assert.equal(only.willUpdate, 0);
+  });
+
+  it('SQL-захист: опис, що з’явився між перевіркою і заливкою, не затирається', async () => {
     let injected = false;
-    wrapped.prepare = sql => {
+    const racing = { ...db, prepare: sql => {
       const st = db.prepare(sql);
       if (/FROM products p LEFT JOIN product_content/.test(sql) && !injected) {
-        const all = st.all; st.all = async () => { const r = await all(); injected = true;
-          s.prepare('INSERT INTO product_content(product_id,description) VALUES(1,?)').run('Хтось уже вписав'); return r; };
+        const all = st.all;
+        st.all = async () => { const r = await all(); injected = true; s.prepare('INSERT INTO product_content(product_id,description) VALUES(1,?)').run('Хтось уже вписав'); return r; };
       }
       return st;
-    };
-    await post(wrapped, [{ sku: '00-1', description: 'мій текст', keywords: kw, meta_description: 'мета' }]);
+    } };
+    await post(racing, [{ sku: '00-1', description: 'мій текст' }]);
     assert.equal(row(s, 1).description, 'Хтось уже вписав');
-    assert.equal(row(s, 1).keywords, kw);
+    assert.equal(row(s, 1).seo_updated_at, null);
   });
 
   it('після заливки товар зникає з експорту', async () => {
-    await post(db, [{ sku: '00-1', description: longDesc, keywords: kw, meta_description: 'Мета.' }]);
-    const items = await (await get(db, '?export=1')).json();
-    assert.ok(!items.some(i => i.sku === '00-1'));
+    await post(db, [{ sku: '00-1', description: longDesc }]);
+    assert.ok(!(await (await get(db, '?export=1')).json()).some(i => i.sku === '00-1'));
   });
 
   it('невідомий sku, порожній запис, дубль у відповіді, неоднозначна назва, матч за назвою', async () => {
@@ -150,88 +151,77 @@ describe('/admin/newproducts: заливка', { skip }, () => {
       { sku: 'НЕМАЄ', description: 'x'.repeat(200) },
       { sku: '00-1' },
       { sku: '00-1', description: longDesc },
-      { sku: '00-1', keywords: 'другий запис ігнорується' },
+      { sku: '00-1', description: 'другий запис ігнорується' },
       { sku: 'Дубль', description: 'тест' },
-      { sku: 'фломастери 12 кол', keywords: 'нове' },
+      { sku: 'ручка кулькова синя', description: longDesc },
     ])).json();
     assert.equal(d.unmatched, 1); assert.equal(d.empty, 1); assert.equal(d.ambiguous.total, 1);
-    assert.equal(d.willUpdate, 1); assert.equal(d.nothingNew, 1);
-    assert.equal(row(s, 1).description, longDesc); assert.equal(row(s, 1).keywords, '');
+    assert.equal(d.willUpdate, 2);
+    assert.equal(row(s, 1).description, longDesc); assert.equal(row(s, 2).description, longDesc);
   });
 
-  it('терпимий до ```json, тексту навколо, масиву в keywords; чистить HTML/markdown/лапки; синоніми ключів', async () => {
-    const text = 'Ось відповідь:\n```json\n' + JSON.stringify([{ sku: '00-1', text: '<p>Опис <b>зошита</b></p>', keywords: ['зошит', ' а5 ', ''], seo_description: '**«Зошит 48 арк. Купити в Ощадному Кошику»**' }]) + '\n```';
-    const d = await (await post(db, text)).json();
-    assert.equal(d.willUpdate, 1);
-    const r = row(s, 1);
-    assert.equal(r.description, 'Опис зошита');
-    assert.equal(r.keywords, 'зошит, а5');
-    assert.equal(r.meta_description, 'Зошит 48 арк. Купити в Ощадному Кошику');
-  });
-
-  it('опис зберігає markdown: переноси рядків, **жирний**, списки; HTML вирізається, зайві порожні рядки стискаються', async () => {
+  it('опис зберігає markdown: переноси, **жирний**, списки; HTML вирізається, зайві порожні рядки стискаються', async () => {
     const md = '**Зошит 48 арк** для записів.\r\n\r\n\r\n\r\n### Особливості\r\n- 48 аркушів\r\n- клітинка\r\n<script>x</script>';
-    await post(db, [{ sku: '00-1', description: md, keywords: kw, meta_description: 'Мета.' }]);
+    await post(db, [{ sku: '00-1', description: md }]);
     assert.equal(row(s, 1).description, '**Зошит 48 арк** для записів.\n\n### Особливості\n- 48 аркушів\n- клітинка\nx');
   });
 
-  it('промпт просить markdown лише з підтримуваного набору, а \\n показано буквально (не реальним переносом)', async () => {
-    const html = await (await get(db)).text();
-    assert.match(html, /формат MARKDOWN/);
-    assert.match(html, /(у JSON це \\n\\n)/);
-    assert.match(html, /### Особливості/);
-    assert.doesNotMatch(html, /без markdown/i);
+  it('терпимий до ```json, тексту навколо, ключів text/annotation', async () => {
+    const text = 'Ось відповідь:\n```json\n' + JSON.stringify([{ sku: '00-1', text: '<p>Опис <b>зошита</b></p>' }, { id: '00-2', annotation: 'Опис ручки' }]) + '\n```';
+    const d = await (await post(db, text)).json();
+    assert.equal(d.willUpdate, 2);
+    assert.equal(row(s, 1).description, 'Опис зошита'); assert.equal(row(s, 2).description, 'Опис ручки');
   });
 
-  it('попередження не блокують; кривий JSON → 400, порожній масив → 400, нічого не пишеться', async () => {
-    const w = await (await post(db, [{ sku: '00-1', description: 'коротко', keywords: 'а, б', meta_description: 'ок' }], '?dryrun=1')).json();
-    assert.ok(w.matched.sample[0].warn.length >= 3);
-    const bad = await post(db, 'це не json'); assert.equal(bad.status, 400);
-    const emp = await post(db, '[]'); assert.equal(emp.status, 400);
+  it('попередження про довжину не блокують; кривий JSON → 400, порожній масив → 400, нічого не пишеться', async () => {
+    const w = await (await post(db, [{ sku: '00-1', description: 'коротко' }], '?dryrun=1')).json();
+    assert.match(w.matched.sample[0].warn, /короткий/); assert.equal(w.willUpdate, 1);
+    assert.equal((await post(db, 'це не json')).status, 400);
+    assert.equal((await post(db, '[]')).status, 400);
     assert.equal(s.prepare('SELECT COUNT(*) n FROM product_content').get().n, 3);
   });
 
   it('ціна, наявність, бренд не змінюються', async () => {
-    const before = s.prepare('SELECT sku,price,in_stock,brand,image_url FROM products ORDER BY id').all().map(r => ({ ...r }));
-    await post(db, [{ sku: '00-1', description: longDesc, keywords: kw, meta_description: 'м' }, { sku: 'РТ-4', description: longDesc }]);
-    const after = s.prepare('SELECT sku,price,in_stock,brand,image_url FROM products ORDER BY id').all().map(r => ({ ...r }));
-    assert.deepEqual(after, before);
+    const q = () => s.prepare('SELECT sku,price,in_stock,brand,image_url FROM products ORDER BY id').all().map(r => ({ ...r }));
+    const before = q();
+    await post(db, [{ sku: '00-1', description: longDesc }, { sku: 'РТ-4', description: longDesc }]);
+    assert.deepEqual(q(), before);
   });
 
   it('cross-site POST відхиляється 403 (CSRF), same-origin проходить', async () => {
     const bad = await post(db, [{ sku: '00-1', description: longDesc }], '', { 'Sec-Fetch-Site': 'cross-site' });
     assert.equal(bad.status, 403); assert.equal(row(s, 1), undefined);
-    const ok = await post(db, [{ sku: '00-1', description: longDesc }], '', { 'Sec-Fetch-Site': 'same-origin' });
-    assert.equal(ok.status, 200);
+    assert.equal((await post(db, [{ sku: '00-1', description: longDesc }], '', { 'Sec-Fetch-Site': 'same-origin' })).status, 200);
   });
 });
 
 describe('/admin/newproducts: сторінка та інтеграція', { skip }, () => {
-  it('показує лічильники, розділи зі slug і промпт без вигадування фактів; скрипт синтаксично валідний', async () => {
+  it('показує лічильник без опису, розділи зі slug і промпт: markdown, \\n показано буквально, факти не вигадувати, лише опис', async () => {
     const s = freshDb(); seed(s);
     const html = await (await get(makeD1(s))).text();
-    assert.match(html, /Нових товарів: <b>5<\/b>/);
+    assert.match(html, /Товарів без опису: <b>5<\/b>/);
     assert.match(html, /value="odyah">Одяг \(1\)/);
+    assert.match(html, /формат MARKDOWN/);
+    assert.match(html, /\(у JSON це \\n\\n\)/);
     assert.match(html, /НЕ вигадуй розмірів/);
-    assert.match(html, /"meta_description"/);
+    const promptArea = html.match(/<textarea id=prompt[\s\S]*?<\/textarea>/)[0];
+    assert.ok(!/keywords|meta_description|meta_title/.test(promptArea), 'у промпті не має бути зайвих полів');
     const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
     assert.doesNotThrow(() => new Function(script));
   });
 
-  it('нових нема → 🎉', async () => {
-    const s = freshDb(); s.exec(`INSERT INTO products(sku,name,price,category_id) VALUES('a','A',1,1); INSERT INTO product_content(product_id,description,keywords,meta_description) VALUES(1,'d','k','m')`);
-    assert.match(await (await get(makeD1(s))).text(), /🎉 Нових товарів немає/);
+  it('усі товари з описом → 🎉', async () => {
+    const s = freshDb(); s.exec(`INSERT INTO products(sku,name,price,category_id) VALUES('a','A',1,1); INSERT INTO product_content(product_id,description) VALUES(1,'d')`);
+    assert.match(await (await get(makeD1(s))).text(), /🎉 Усі товари мають опис/);
   });
 
   it('збій D1 не ламає сторінку', async () => {
     const broken = { prepare: () => ({ bind() { return this; }, all: async () => { throw new Error('D1_ERROR boom'); } }) };
-    const html = await (await get(broken)).text();
-    assert.match(html, /Не вдалося порахувати: D1_ERROR boom/);
+    assert.match(await (await get(broken)).text(), /Не вдалося порахувати: D1_ERROR boom/);
   });
 
   it('плитка є на головній адмінки; /admin/newproducts під Basic Auth', async () => {
-    const html = await (await adminIndex.onRequestGet()).text();
-    assert.match(html, /href="\/admin\/newproducts"/);
+    assert.match(await (await adminIndex.onRequestGet()).text(), /href="\/admin\/newproducts"/);
     // У Node заголовок WWW-Authenticate з кирилицею кидає TypeError (у Workers це працює), тому перевіряємо головне:
     // без пароля next() не викликається, з правильним паролем — викликається.
     let called = 0; const next = () => { called++; return new Response('ok'); };

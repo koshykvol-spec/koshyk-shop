@@ -238,7 +238,7 @@ function renderPage() {
       <a class="admin-card" href="/admin/newproducts">
         <span class="card-icon">🆕</span>
         <span class="card-title">Нові товари</span>
-        <span class="card-sub">Опис + ключові слова + SEO одним проходом</span>
+        <span class="card-sub">Опис (markdown) для товарів без опису</span>
       </a>
       <a class="admin-card" href="/admin/annotations">
         <span class="card-icon">🧺</span>
