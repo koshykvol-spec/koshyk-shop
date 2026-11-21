@@ -90,3 +90,13 @@ describe('«Масові дії»: лише опис', { skip }, () => {
     assert.equal(row(s, 3).description, 'Майка'); assert.equal(row(s, 1), undefined);
   });
 });
+
+describe('дашборд адмінки: чіпи', { skip }, () => {
+  it('є «Без опису» і «Без фото»; чіпів «Без SEO» і «Без ключових слів» (колонки, яких сайт не читає) немає; скрипт валідний', async () => {
+    const adminIndex = await import('../../functions/admin/index.js');
+    const html = await (await adminIndex.onRequestGet()).text();
+    assert.match(html, /missing=description/); assert.match(html, /missing=photo/);
+    assert.ok(!/missing=seo|missing=keywords|Без SEO|Без ключових слів/.test(html));
+    for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new Function(m[1]));
+  });
+});

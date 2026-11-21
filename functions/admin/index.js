@@ -284,9 +284,8 @@ fetch("/admin/api/dashboard-stats")
     statusChips.innerHTML =
       '<a class="chip chip-all" href="/admin/products">Усі <b>' + data.total + '</b></a>' +
       '<a class="chip" href="/admin/products?missing=description">Без опису <b>' + data.missingDescription + '</b></a>' +
-      '<a class="chip" href="/admin/products?missing=photo">Без фото <b>' + data.missingPhoto + '</b></a>' +
-      '<a class="chip" href="/admin/products?missing=seo">Без SEO <b>' + data.missingSeo + '</b></a>' +
-      '<a class="chip" href="/admin/products?missing=keywords">Без ключових слів <b>' + data.missingKeywords + '</b></a>';
+      '<a class="chip" href="/admin/products?missing=photo">Без фото <b>' + data.missingPhoto + '</b></a>';
+    // Чіпи SEO та ключових слів прибрано: сайт не читає meta_title/meta_description/keywords.
 
     var categoryChips = document.getElementById("categoryChips");
     categoryChips.innerHTML = data.categories.map(function (c) {
