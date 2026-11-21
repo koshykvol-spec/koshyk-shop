@@ -1,9 +1,9 @@
-// GET /admin/bulk — масове заповнення description/meta_title/meta_description/keywords
+// GET /admin/bulk — масове заповнення ОПИСУ товарів
 // за текстовим шаблоном з підстановками {name}, {brand}, {category}, {price}, {sku}.
 //
 // Навіщо шаблон, а не AI-генерація: без окремого API-ключа (OpenAI/
 // Anthropic у site_settings) і без бюджету на 2030 викликів LLM це
-// найпрактичніший спосіб заповнити SEO-поля масово вже зараз. Якщо
+// найпрактичніший спосіб заповнити описи масово вже зараз. Інші поля (meta_title, meta_description, keywords) сайт не читає, тому їх тут немає. Якщо
 // пізніше буде додано ключ для генерації текстів — це природне місце
 // для розширення (кнопка "згенерувати AI" поруч із шаблоном).
 
@@ -195,7 +195,7 @@ function renderPage(categories) {
 </header>
 
 <div class="wrap">
-  <h1>Масове заповнення описів і SEO</h1>
+  <h1>Масове заповнення описів</h1>
   <p class="lede">
     Шаблон застосовується одразу до всіх товарів, що потрапляють під фільтр.
     Підстановки: <code>{name}</code> назва, <code>{brand}</code> бренд (якщо порожній — просто зникає),
@@ -221,19 +221,7 @@ function renderPage(categories) {
     <h2>2. Шаблони</h2>
     <div class="form-row">
       <label>Опис (буде в описі товару, довільна довжина)</label>
-      <textarea id="tplDescription" placeholder="{name} — вигідна пропозиція в категорії «{category}» за {price} ₴.">{name} від {brand} у категорії «{category}». Вигідна ціна — {price} ₴.</textarea>
-    </div>
-    <div class="form-row">
-      <label>Meta title</label>
-      <input type="text" id="tplMetaTitle" value="{name} купити за {price} ₴ — Ощадний Кошик">
-    </div>
-    <div class="form-row">
-      <label>Meta description</label>
-      <textarea id="tplMetaDescription">{name} в категорії «{category}» за {price} ₴. Купити в Ощадному Кошику.</textarea>
-    </div>
-    <div class="form-row">
-      <label>Ключові слова (через кому)</label>
-      <input type="text" id="tplKeywords" value="{name}, {category}, купити, ощадний кошик">
+      <textarea id="tplDescription" placeholder="{name} — вигідна пропозиція в категорії «{category}» за {price} ₴.">{name} від {brand} у категорії «{category}».</textarea>
     </div>
   </div>
 
@@ -298,9 +286,6 @@ function clientJs() {
       missingOnly: document.getElementById("filterMissingOnly").checked,
       templates: {
         description: document.getElementById("tplDescription").value,
-        metaTitle: document.getElementById("tplMetaTitle").value,
-        metaDescription: document.getElementById("tplMetaDescription").value,
-        keywords: document.getElementById("tplKeywords").value,
       },
     };
 

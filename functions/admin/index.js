@@ -233,7 +233,7 @@ function renderPage() {
       <a class="admin-card" href="/admin/bulk">
         <span class="card-icon">✨</span>
         <span class="card-title">Масові дії</span>
-        <span class="card-sub">Опис, SEO, ключові слова за шаблоном</span>
+        <span class="card-sub">Опис за шаблоном для групи товарів</span>
       </a>
       <a class="admin-card" href="/admin/newproducts">
         <span class="card-icon">🆕</span>
@@ -243,7 +243,7 @@ function renderPage() {
       <a class="admin-card" href="/admin/annotations">
         <span class="card-icon">🧺</span>
         <span class="card-title">Масова заливка</span>
-        <span class="card-sub">Через LLM: опис, ключові слова, SEO</span>
+        <span class="card-sub">Перезапис описів через LLM</span>
       </a>
       <a class="admin-card" href="/admin/attributes">
         <span class="card-icon">🏷️</span>

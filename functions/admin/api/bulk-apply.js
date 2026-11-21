@@ -1,5 +1,6 @@
 // POST /admin/api/bulk-apply
-// { category, missingOnly, templates: { description, metaTitle, metaDescription, keywords } }
+// { category, missingOnly, templates: { description } }
+// Пише лише product_content.description (+ seo_updated_at): meta_title/meta_description/keywords сайт не читає.
 //
 // Підстановки в шаблонах: {name} {brand} {category} {price} {sku}.
 // Порожній {brand} прибирається разом із зайвим пробілом навколо нього.
@@ -23,6 +24,10 @@ export async function onRequestPost(context) {
   const { category, missingOnly, templates } = body;
   if (!templates || typeof templates !== "object") {
     return json({ ok: false, error: "Відсутні шаблони" }, 400);
+  }
+  // Порожній шаблон дав би NULL і стер би наявні описи (особливо без «тільки без опису»).
+  if (!String(templates.description || "").trim()) {
+    return json({ ok: false, error: "Шаблон опису порожній" }, 400);
   }
 
   const where = [];
@@ -60,22 +65,16 @@ export async function onRequestPost(context) {
       sku: p.sku,
     };
     const description = fillTemplate(templates.description, vars);
-    const metaTitle = fillTemplate(templates.metaTitle, vars);
-    const metaDescription = fillTemplate(templates.metaDescription, vars);
-    const keywords = fillTemplate(templates.keywords, vars);
 
     return env.koshyk_db
       .prepare(
-        `INSERT INTO product_content (product_id, description, meta_title, meta_description, keywords, seo_updated_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO product_content (product_id, description, seo_updated_at)
+         VALUES (?, ?, datetime('now'))
          ON CONFLICT(product_id) DO UPDATE SET
            description = excluded.description,
-           meta_title = excluded.meta_title,
-           meta_description = excluded.meta_description,
-           keywords = excluded.keywords,
            seo_updated_at = datetime('now')`
       )
-      .bind(p.id, description, metaTitle, metaDescription, keywords);
+      .bind(p.id, description);
   });
 
   let updated = 0;
