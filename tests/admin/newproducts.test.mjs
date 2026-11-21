@@ -169,6 +169,20 @@ describe('/admin/newproducts: заливка', { skip }, () => {
     assert.equal(r.meta_description, 'Зошит 48 арк. Купити в Ощадному Кошику');
   });
 
+  it('опис зберігає markdown: переноси рядків, **жирний**, списки; HTML вирізається, зайві порожні рядки стискаються', async () => {
+    const md = '**Зошит 48 арк** для записів.\r\n\r\n\r\n\r\n### Особливості\r\n- 48 аркушів\r\n- клітинка\r\n<script>x</script>';
+    await post(db, [{ sku: '00-1', description: md, keywords: kw, meta_description: 'Мета.' }]);
+    assert.equal(row(s, 1).description, '**Зошит 48 арк** для записів.\n\n### Особливості\n- 48 аркушів\n- клітинка\nx');
+  });
+
+  it('промпт просить markdown лише з підтримуваного набору, а \\n показано буквально (не реальним переносом)', async () => {
+    const html = await (await get(db)).text();
+    assert.match(html, /формат MARKDOWN/);
+    assert.match(html, /(у JSON це \\n\\n)/);
+    assert.match(html, /### Особливості/);
+    assert.doesNotMatch(html, /без markdown/i);
+  });
+
   it('попередження не блокують; кривий JSON → 400, порожній масив → 400, нічого не пишеться', async () => {
     const w = await (await post(db, [{ sku: '00-1', description: 'коротко', keywords: 'а, б', meta_description: 'ок' }], '?dryrun=1')).json();
     assert.ok(w.matched.sample[0].warn.length >= 3);
