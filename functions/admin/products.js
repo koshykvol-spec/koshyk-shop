@@ -505,10 +505,10 @@ function clientJs() {
       gallery.innerHTML = '<p class="gallery-empty">Фото ще немає — додайте нижче.</p>';
       return;
     }
-    var hint = images.length > 1 ? '<p class="gallery-hint">🖐 перетягуйте фото для зміни порядку</p>' : '';
+    var hint = images.length > 1 ? '<p class="gallery-hint">🖐 перетягуйте фото для зміни порядку · 🔍 клік по фото — переглянути</p>' : '';
     gallery.innerHTML = hint + images.map(function (img) {
       return '' +
-        '<div class="photo-thumb' + (img.isPrimary ? ' primary' : '') + '" draggable="true" data-image-id="' + img.id + '">' +
+        '<div class="photo-thumb' + (img.isPrimary ? ' primary' : '') + '" draggable="true" data-image-id="' + img.id + '" title="Клік — переглянути, перетягніть — змінити порядок">' +
           '<img src="' + img.url + '" alt="">' +
           (img.isPrimary ? '<span class="primary-badge">Головне</span>' : '<button type="button" class="make-primary-btn">Зробити головним</button>') +
           '<button type="button" class="delete-photo-btn">✕</button>' +
@@ -543,6 +543,68 @@ function clientJs() {
     });
 
     attachDragReorder(gallery);
+    attachViewer(gallery);
+  }
+
+  // ── Перегляд фото (великий розмір) ───────────────────────────────
+  var pv = null, pvList = [], pvIdx = 0, pvPrevOverflow = "";
+  function pvBuild() {
+    pv = document.createElement("div");
+    pv.className = "pv";
+    pv.hidden = true;
+    pv.setAttribute("role", "dialog");
+    pv.setAttribute("aria-modal", "true");
+    pv.setAttribute("aria-label", "Перегляд фото");
+    pv.innerHTML =
+      '<button type="button" class="pv-close" aria-label="Закрити">×</button>' +
+      '<button type="button" class="pv-prev" aria-label="Попереднє фото">‹</button>' +
+      '<img class="pv-img" alt="">' +
+      '<button type="button" class="pv-next" aria-label="Наступне фото">›</button>' +
+      '<div class="pv-bar"><span class="pv-count"></span><span class="pv-main"></span><a class="pv-open" target="_blank" rel="noopener">Відкрити оригінал ↗</a></div>';
+    document.body.appendChild(pv);
+    pv.querySelector(".pv-close").addEventListener("click", pvClose);
+    pv.querySelector(".pv-prev").addEventListener("click", function (e) { e.stopPropagation(); pvGo(-1); });
+    pv.querySelector(".pv-next").addEventListener("click", function (e) { e.stopPropagation(); pvGo(1); });
+    pv.addEventListener("click", function (e) { if (e.target === pv) pvClose(); });
+    var x0 = null;
+    pv.addEventListener("touchstart", function (e) { x0 = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+    pv.addEventListener("touchend", function (e) {
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0; x0 = null;
+      if (Math.abs(dx) > 50 && pvList.length > 1) pvGo(dx < 0 ? 1 : -1);
+    }, { passive: true });
+    document.addEventListener("keydown", function (e) {
+      if (!pv || pv.hidden) return;
+      if (e.key === "Escape") { e.stopPropagation(); pvClose(); }
+      else if (e.key === "ArrowLeft" && pvList.length > 1) pvGo(-1);
+      else if (e.key === "ArrowRight" && pvList.length > 1) pvGo(1);
+    }, true);
+  }
+  function pvShow() {
+    var it = pvList[pvIdx];
+    pv.querySelector(".pv-img").src = it.url;
+    pv.querySelector(".pv-count").textContent = pvList.length > 1 ? (pvIdx + 1) + " / " + pvList.length : "";
+    pv.querySelector(".pv-main").textContent = it.primary ? "★ Головне фото" : "";
+    pv.querySelector(".pv-open").href = it.url;
+    pv.querySelector(".pv-prev").style.display = pv.querySelector(".pv-next").style.display = pvList.length > 1 ? "" : "none";
+  }
+  function pvGo(d) { pvIdx = (pvIdx + d + pvList.length) % pvList.length; pvShow(); }
+  function pvClose() { pv.hidden = true; document.body.style.overflow = pvPrevOverflow; }
+  function attachViewer(gallery) {
+    gallery.querySelectorAll(".photo-thumb:not(.photo-thumb-pending)").forEach(function (t) {
+      t.addEventListener("click", function (e) {
+        if (e.target.closest("button")) return;
+        // порядок беремо з DOM: після перетягування він міг змінитись
+        var all = Array.prototype.slice.call(gallery.querySelectorAll(".photo-thumb:not(.photo-thumb-pending)"));
+        pvList = all.map(function (el) { return { url: el.querySelector("img").getAttribute("src"), primary: el.classList.contains("primary") }; });
+        pvIdx = Math.max(0, all.indexOf(t));
+        if (!pv) pvBuild();
+        pvShow();
+        pv.hidden = false;
+        pvPrevOverflow = document.body.style.overflow;   // вікно редагування вже блокує прокрутку — після закриття повертаємо як було
+        document.body.style.overflow = "hidden";
+      });
+    });
   }
 
   // ── Прев'ю фото перед завантаженням ──────────────────────────────
@@ -785,6 +847,16 @@ function css() {
   .photo-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; }
   .gallery-empty, .gallery-loading { font-size: 0.82rem; color: var(--ink-soft); }
   .gallery-hint { width: 100%; font-size: 0.76rem; color: var(--ink-soft); margin-bottom: 2px; }
+  .pv { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.9); display: flex; align-items: center; justify-content: center; touch-action: pinch-zoom; }
+  .pv[hidden] { display: none; }
+  .pv-img { max-width: 94vw; max-height: 84vh; object-fit: contain; border-radius: 6px; background: #fff; }
+  .pv button { position: absolute; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 1.7rem; width: 46px; height: 46px; border-radius: 50%; cursor: pointer; line-height: 1; padding: 0; }
+  .pv button:hover { background: rgba(255,255,255,.34); }
+  .pv-close { top: 14px; right: 14px; }
+  .pv-prev { left: 14px; top: 50%; transform: translateY(-50%); }
+  .pv-next { right: 14px; top: 50%; transform: translateY(-50%); }
+  .pv-bar { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; gap: 16px; justify-content: center; align-items: center; color: #fff; font-size: .88rem; }
+  .pv-open { color: #fff; text-decoration: underline; }
   .photo-thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--line); background: var(--paper); cursor: grab; }
   .photo-thumb.primary { border-color: var(--green); border-width: 2px; }
   .photo-thumb.photo-thumb-pending { cursor: default; opacity: 0.65; }
