@@ -90,7 +90,7 @@ describe('/admin/products: редактор фото (клієнт)', () => {
   it('редактор: поворот/відзеркалення/обрізка/замальовування/яскравість; «замінити» і «як нове» ідуть на правильні API; Esc лише закриває редактор', () => {
     for (const k of ['function openEditor', 'rotate(-1)', 'rotate(1)', 'function flip', 'function applyRect', 'mode === "fill"', 'brightness(',
       '/admin/api/replace-image?imageId=', '/admin/api/upload-image?productId=', '"image/jpeg"', 'loadGallery(currentProductId)', 'setPointerCapture',
-      '!pv || pv.hidden || ed', 'e.stopImmediatePropagation(); edClose()']) assert.ok(script.includes(k), k);
+      '!pv || pv.hidden || ed', 'e.stopImmediatePropagation(); edClose()', 'function edInpaint', 'function applyErase', 'mode === "erase"', 'Лише тонкий напис', 'Пензель']) assert.ok(script.includes(k), k);
     assert.ok(!/https?:\/\//.test(script.slice(script.indexOf('function openEditor'), script.indexOf("Прев'ю фото перед завантаженням"))), 'без зовнішніх адрес');
   });
   it('наявні можливості лишились: перетягування, головне, видалення, завантаження, перегляд', () => {
