@@ -839,6 +839,24 @@ function clientJs() {
     tools.appendChild(edBtn("⟳", "Повернути вправо", function () { rotate(1); }));
     tools.appendChild(edBtn("⇋", "Відзеркалити", flip));
     tools.appendChild(bCrop); tools.appendChild(bFill); tools.appendChild(bErase);
+    var aiBusy = false;
+    function aiClean() {
+      if (aiBusy) return; aiBusy = true;
+      say("⏳ Gemini прибирає напис (до хвилини)…"); setBusy(true);
+      new Promise(function (res) { out(1536).toBlob(res, "image/jpeg", 0.9); }).then(function (blob) {
+        if (!blob) throw new Error("браузер не зміг підготувати фото");
+        return fetch("/admin/api/gemini-clean", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.ok) throw new Error(j.error || "помилка сервера");
+        return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { rej(new Error("не вдалося прочитати результат")); }; im.src = "data:" + j.mime + ";base64," + j.image; });
+      }).then(function (im) {
+        push(); var c = cnv(im.naturalWidth, im.naturalHeight); c.getContext("2d").drawImage(im, 0, 0);
+        bright = 100; contr = 100; bs.value = 100; cs.value = 100; setWork(c);
+        say("✨ Готово. ПЕРЕВІРТЕ текст на упаковці й логотип — ШІ міг щось спотворити. Не подобається — «Скасувати крок».");
+        setBusy(false); aiBusy = false;
+      }).catch(function (e) { say("Помилка: " + (e && e.message || e)); setBusy(false); aiBusy = false; });
+    }
+    tools.appendChild(edBtn("✨ Gemini", "ШІ (Nano Banana 2) прибирає водяний знак. Платно; завжди перевіряйте результат", aiClean, "background:#6a1b9a;color:#fff"));
     tools.appendChild(edBtn("✔ Застосувати", "Обрізати / замалювати виділене / стерти зафарбоване", applyRect, "background:#2d6a2d;color:#fff"));
     tools.appendChild(edBtn("↶ Скасувати крок", "", undo));
     tools.appendChild(edBtn("⟲⟲ До оригіналу", "", reset));
