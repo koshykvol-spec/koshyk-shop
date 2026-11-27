@@ -840,15 +840,29 @@ function clientJs() {
     tools.appendChild(edBtn("⇋", "Відзеркалити", flip));
     tools.appendChild(bCrop); tools.appendChild(bFill); tools.appendChild(bErase);
     var aiBusy = false;
+    var AI_PROMPT = "Remove ONLY the semi-transparent watermark text or logo that a third-party website has overlaid on this product photo (for example a website address, a shop name or a faint repeated caption). Do NOT change anything else: keep the product, the packaging and ALL printed text and logos that are part of the packaging exactly as they are, keep the colors, lighting, composition, framing and aspect ratio identical. Reconstruct the background under the watermark naturally. Return the full image.";
+    function blobB64(blob) { return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(String(fr.result).split(",")[1] || ""); }; fr.onerror = function () { rej(new Error("не вдалося прочитати фото")); }; fr.readAsDataURL(blob); }); }
     function aiClean() {
       if (aiBusy) return; aiBusy = true;
       say("⏳ Gemini прибирає напис (до хвилини)…"); setBusy(true);
       new Promise(function (res) { out(1536).toBlob(res, "image/jpeg", 0.9); }).then(function (blob) {
         if (!blob) throw new Error("браузер не зміг підготувати фото");
-        return fetch("/admin/api/gemini-clean", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
-      }).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j.ok) throw new Error(j.error || "помилка сервера");
-        return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { rej(new Error("не вдалося прочитати результат")); }; im.src = "data:" + j.mime + ";base64," + j.image; });
+        return blobB64(blob);
+      }).then(function (b64) {
+        return fetch("/admin/api/gemini-clean", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: AI_PROMPT }, { inline_data: { mime_type: "image/jpeg", data: b64 } }] }], generationConfig: { responseModalities: ["IMAGE"] } }) });
+      }).then(function (r) {
+        return r.text().then(function (t) {
+          var j = null; try { j = JSON.parse(t); } catch (_) {}
+          if (!j) throw new Error("сервер відповів HTTP " + r.status + ": " + t.replace(/<[^>]*>/g, " ").replace(/ +/g, " ").trim().slice(0, 160));
+          if (!r.ok || j.ok === false) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+          var c = j.candidates && j.candidates[0], parts = (c && c.content && c.content.parts) || [], d = null;
+          for (var q = 0; q < parts.length; q++) { var x = parts[q].inlineData || parts[q].inline_data; if (x && x.data) { d = x; break; } }
+          if (!d) throw new Error("Gemini не повернув зображення" + ((j.promptFeedback && j.promptFeedback.blockReason) || (c && c.finishReason) ? " (" + ((j.promptFeedback && j.promptFeedback.blockReason) || c.finishReason) + ")" : ""));
+          return "data:" + (d.mimeType || d.mime_type || "image/png") + ";base64," + d.data;
+        });
+      }).then(function (src) {
+        return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { rej(new Error("не вдалося прочитати результат")); }; im.src = src; });
       }).then(function (im) {
         push(); var c = cnv(im.naturalWidth, im.naturalHeight); c.getContext("2d").drawImage(im, 0, 0);
         bright = 100; contr = 100; bs.value = 100; cs.value = 100; setWork(c);
